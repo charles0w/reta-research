@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MoonPayBuyWidget } from "@moonpay/moonpay-react";
 
 const products = [
   { id: 1, name: "Retatrutide 5mg", purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 89.00, stock: true },
@@ -24,6 +25,7 @@ export default function App() {
   const [section, setSection] = useState("products");
   const [cart, setCart] = useState([]);
   const [openFaq, setOpenFaq] = useState(null);
+  const [showMoonPay, setShowMoonPay] = useState(false);
 
   const addToCart = (p) => {
     setCart((prev) => {
@@ -171,7 +173,15 @@ export default function App() {
                   <span>Total</span>
                   <span>${cart.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2)}</span>
                 </div>
-                <button className="btn-primary" style={{ width: "100%", padding: 16, marginTop: 8 }}>Checkout</button>
+                <button className="btn-primary" style={{ width: "100%", padding: 16, marginTop: 8 }} onClick={() => setShowMoonPay(true)}>Pay with Crypto</button>
+                <MoonPayBuyWidget
+                  variant="overlay"
+                  baseCurrencyCode="usd"
+                  baseCurrencyAmount={String(cart.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2))}
+                  defaultCurrencyCode="eth"
+                  visible={showMoonPay}
+                  onCloseOverlay={() => setShowMoonPay(false)}
+                />
                 <div style={{ marginTop: 16, fontSize: 12, color: "#8A8A82", lineHeight: 1.6, textAlign: "center" }}>
                   By completing your purchase you confirm all products are intended solely for legitimate in-vitro research. Not for human consumption.
                 </div>
