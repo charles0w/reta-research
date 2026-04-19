@@ -1,30 +1,30 @@
 import { useState } from "react";
 import { MoonPayBuyWidget } from "@moonpay/moonpay-react";
 
-const products = [
+const products =[
   { id: 1, name: "Retatrutide 5mg", purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 89.00, stock: true },
   { id: 2, name: "Retatrutide 10mg", purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 159.00, stock: true },
   { id: 3, name: "Retatrutide 30mg", purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 399.00, stock: true },
-  { id: 4, name: "BAC Water 10mL", purity: "USP Grade", form: "Sterile Solution", cas: "—", price: 12.00, stock: true },
 ];
 
-const references = [
-  { title: "Triple hormone receptor agonist retatrutide for metabolic dysfunction", journal: "Nature Medicine", year: 2023 },
-  { title: "Efficacy and safety of retatrutide in obesity: a phase 2 trial", journal: "NEJM", year: 2023 },
-  { title: "GIP/GLP-1/glucagon receptor tri-agonism: mechanisms and therapeutic potential", journal: "Trends in Endocrinology", year: 2024 },
+const researchFindings =[
+  "Changes in body weight over the course of structured studies",
+  "Modulation of appetite-related signaling",
+  "Alterations in glucose and insulin-related markers",
+  "Increased metabolic activity through multi-pathway receptor engagement"
 ];
 
-const faqs = [
-  { q: "What is Retatrutide?", a: "Retatrutide (LY3437943) is an investigational tri-agonist peptide targeting GIP, GLP-1, and glucagon receptors. It is supplied strictly for in-vitro research and laboratory use." },
+const faqs =[
+  { q: "What is Retatrutide (LY3437943)?", a: "Retatrutide is a synthetic peptide studied in metabolic and endocrine research. It functions as a triple receptor agonist, interacting with GLP-1, GIP, and glucagon receptors involved in energy balance and glucose regulation." },
+  { q: "What observations have been reported in published findings?", a: "In controlled research settings, activation of these pathways has been associated with effects on appetite signaling, metabolic activity, and glucose-related markers." },
+  { q: "Is this product for human consumption?", a: "No. This product is intended strictly for laboratory research purposes only. Not for human or animal consumption. Not for use in diagnostic or therapeutic applications." },
   { q: "Who can purchase?", a: "Products are available to qualified researchers, academic institutions, and licensed laboratories. By placing an order you confirm your purchase is solely for legitimate research purposes." },
-  { q: "How is purity verified?", a: "Each batch undergoes HPLC and mass spectrometry analysis. A Certificate of Analysis (CoA) is included with every shipment." },
-  { q: "How are orders shipped?", a: "Orders ship within 1–2 business days via temperature-controlled packaging. Free shipping on orders over $200." },
 ];
 
 export default function App() {
   const [section, setSection] = useState("products");
   const [cart, setCart] = useState([]);
-  const [openFaq, setOpenFaq] = useState(null);
+  const[openFaq, setOpenFaq] = useState(null);
   const [showMoonPay, setShowMoonPay] = useState(false);
 
   const addToCart = (p) => {
@@ -61,8 +61,8 @@ export default function App() {
       {/* Header */}
       <header style={{ padding: "24px 48px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #E8E8E4" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span className="serif" style={{ fontSize: 26, fontWeight: 400 }}>Reta</span>
-          <span style={{ fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "#8A8A82" }}>Research</span>
+          <span className="serif" style={{ fontSize: 26, fontWeight: 400 }}>Ace</span>
+          <span style={{ fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "#8A8A82" }}>Peptides</span>
         </div>
         <nav style={{ display: "flex", gap: 32, alignItems: "center" }}>
           {[["products", "Products"], ["research", "Research"], ["faq", "FAQ"]].map(([key, label]) => (
@@ -81,7 +81,7 @@ export default function App() {
           <>
             <div style={{ marginBottom: 72, maxWidth: 560 }}>
               <h1 className="serif" style={{ fontSize: 48, fontWeight: 400, lineHeight: 1.15, marginBottom: 20 }}>Research-grade peptides.</h1>
-              <p style={{ fontSize: 15, color: "#6A6A62", lineHeight: 1.7 }}>HPLC-verified, ≥99% purity. Every vial ships with a Certificate of Analysis. For in-vitro and laboratory research only.</p>
+              <p style={{ fontSize: 15, color: "#6A6A62", lineHeight: 1.7 }}>HPLC-verified, ≥99% purity. For in-vitro and laboratory research only.</p>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
@@ -104,7 +104,7 @@ export default function App() {
             </div>
 
             <div style={{ marginTop: 48, padding: 24, background: "#F2F2EE", fontSize: 12, color: "#8A8A82", lineHeight: 1.7, textAlign: "center" }}>
-              All products are sold strictly for in-vitro research and laboratory use. Not for human consumption, veterinary use, or household use. By purchasing, you agree to these terms.
+              <strong>Disclaimer:</strong> This product is intended strictly for laboratory research purposes only. Not for human or animal consumption. Not for use in diagnostic or therapeutic applications.
             </div>
           </>
         )}
@@ -112,24 +112,25 @@ export default function App() {
         {/* Research */}
         {section === "research" && (
           <>
-            <h2 className="serif" style={{ fontSize: 36, fontWeight: 400, marginBottom: 12 }}>Published Research</h2>
-            <p style={{ fontSize: 14, color: "#6A6A62", marginBottom: 48, lineHeight: 1.7, maxWidth: 520 }}>Key peer-reviewed literature on retatrutide and related tri-agonist peptides.</p>
+            <h2 className="serif" style={{ fontSize: 36, fontWeight: 400, marginBottom: 12 }}>Retatrutide (LY3437943) Overview</h2>
+            <p style={{ fontSize: 14, color: "#6A6A62", marginBottom: 24, lineHeight: 1.7, maxWidth: 600 }}>
+              Retatrutide is a synthetic peptide studied in metabolic and endocrine research. It functions as a triple receptor agonist, interacting with GLP-1, GIP, and glucagon receptors involved in energy balance and glucose regulation.
+            </p>
+            <p style={{ fontSize: 14, color: "#6A6A62", marginBottom: 48, lineHeight: 1.7, maxWidth: 600 }}>
+              In controlled research settings, activation of these pathways has been associated with effects on appetite signaling, metabolic activity, and glucose-related markers. Retatrutide continues to be studied for its role in metabolic research.
+            </p>
+
+            <h3 style={{ fontSize: 14, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", marginBottom: 16 }}>Published Findings</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              {references.map((r, i) => (
-                <div key={i} style={{ background: "#fff", border: "1px solid #E8E8E4", padding: "24px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}>{r.title}</div>
-                    <div style={{ fontSize: 13, color: "#8A8A82" }}>{r.journal}</div>
-                  </div>
-                  <span style={{ fontSize: 13, color: "#AAA", fontVariantNumeric: "tabular-nums" }}>{r.year}</span>
+              {researchFindings.map((finding, i) => (
+                <div key={i} style={{ background: "#fff", border: "1px solid #E8E8E4", padding: "20px 28px", display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ color: "#AAA" }}>•</span>
+                  <span style={{ fontSize: 15, fontWeight: 500 }}>{finding}</span>
                 </div>
               ))}
             </div>
-            <div style={{ marginTop: 48 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", marginBottom: 16 }}>Mechanism Overview</h3>
-              <p style={{ fontSize: 14, color: "#6A6A62", lineHeight: 1.8, maxWidth: 600 }}>
-                Retatrutide (LY3437943) is a single peptide that activates three incretin-related receptors: GIP, GLP-1, and glucagon. This tri-agonist mechanism is under active investigation for its effects on energy balance, glucose homeostasis, and lipid metabolism in preclinical models.
-              </p>
+            <div style={{ marginTop: 48, padding: 24, background: "#F2F2EE", fontSize: 12, color: "#8A8A82", lineHeight: 1.7, textAlign: "center" }}>
+              <strong>Disclaimer:</strong> This product is intended strictly for laboratory research purposes only. Not for human or animal consumption. Not for use in diagnostic or therapeutic applications.
             </div>
           </>
         )}
@@ -183,7 +184,7 @@ export default function App() {
                   onCloseOverlay={() => setShowMoonPay(false)}
                 />
                 <div style={{ marginTop: 16, fontSize: 12, color: "#8A8A82", lineHeight: 1.6, textAlign: "center" }}>
-                  By completing your purchase you confirm all products are intended solely for legitimate in-vitro research. Not for human consumption.
+                  <strong>Disclaimer:</strong> This product is intended strictly for laboratory research purposes only. Not for human or animal consumption. Not for use in diagnostic or therapeutic applications.
                 </div>
               </>
             )}
@@ -192,7 +193,7 @@ export default function App() {
       </main>
 
       <footer style={{ borderTop: "1px solid #E8E8E4", padding: "32px 48px", display: "flex", justifyContent: "space-between", fontSize: 12, color: "#AAA" }}>
-        <span>© 2026 Reta Research. All products for laboratory use only.</span>
+        <span>© 2026 Ace Peptides (ace-peptides.com). All products for laboratory research use only.</span>
         <span>Terms · Privacy · Contact</span>
       </footer>
     </div>
