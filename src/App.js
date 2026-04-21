@@ -3,7 +3,7 @@ import { MoonPayBuyWidget } from "@moonpay/moonpay-react";
 import CoinbaseWalletSDK from "@coinbase/wallet-sdk";
 
 // Set this to your ETH wallet address to receive payments
-const RECIPIENT_ADDRESS = "0xYourWalletAddressHere";
+const RECIPIENT_ADDRESS = "0x74e9af21c6060328371b3813689b472132f89cbd";
 
 const coinbaseWallet = new CoinbaseWalletSDK({ appName: "Ace Peptides" });
 const coinbaseProvider = coinbaseWallet.makeWeb3Provider();
