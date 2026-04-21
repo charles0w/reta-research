@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { MoonPayBuyWidget } from "@moonpay/moonpay-react";
+import CoinbaseWalletSDK from "@coinbase/wallet-sdk";
 
 // Set this to your ETH wallet address to receive payments
 const RECIPIENT_ADDRESS = "0xYourWalletAddressHere";
+
+const coinbaseWallet = new CoinbaseWalletSDK({ appName: "Ace Peptides" });
+const coinbaseProvider = coinbaseWallet.makeWeb3Provider();
 
 const products =[
   { id: 1, name: "Retatrutide 5mg", purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 89.00, stock: true },
@@ -33,6 +37,7 @@ export default function App() {
   const [txHash, setTxHash] = useState(null);
   const [walletError, setWalletError] = useState(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const activeProvider = useRef(null);
 
   const addToCart = (p) => {
     setCart((prev) => {
@@ -45,22 +50,30 @@ export default function App() {
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
 
-  const connectWallet = async () => {
+  const connectWallet = async (provider) => {
     setWalletError(null);
-    if (!window.ethereum) {
-      setWalletError("No Web3 wallet detected. Please install MetaMask or Coinbase Wallet.");
-      return;
-    }
     try {
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      const accounts = await provider.request({ method: "eth_requestAccounts" });
+      activeProvider.current = provider;
       setWalletAddress(accounts[0]);
     } catch {
       setWalletError("Wallet connection was rejected.");
     }
   };
 
+  const connectMetaMask = () => {
+    if (!window.ethereum) {
+      setWalletError("MetaMask not detected. Please install the MetaMask extension.");
+      return;
+    }
+    connectWallet(window.ethereum);
+  };
+
+  const connectCoinbase = () => connectWallet(coinbaseProvider);
+
   const payWithWallet = async () => {
-    if (!walletAddress) { await connectWallet(); return; }
+    const provider = activeProvider.current;
+    if (!provider || !walletAddress) return;
     setPaymentLoading(true);
     setWalletError(null);
     setTxHash(null);
@@ -71,7 +84,7 @@ export default function App() {
       const ethAmount = cartTotal / ethPrice;
       const weiAmount = BigInt(Math.round(ethAmount * 1e14)) * 10000n;
       const hexValue = "0x" + weiAmount.toString(16);
-      const tx = await window.ethereum.request({
+      const tx = await provider.request({
         method: "eth_sendTransaction",
         params: [{ from: walletAddress, to: RECIPIENT_ADDRESS, value: hexValue }],
       });
@@ -252,9 +265,16 @@ export default function App() {
                       </button>
                     </>
                   ) : (
-                    <button className="btn-primary" style={{ width: "100%", padding: 14 }} onClick={connectWallet}>
-                      Connect Wallet
-                    </button>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <button className="btn-primary" style={{ width: "100%", padding: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }} onClick={connectCoinbase}>
+                        <svg width="18" height="18" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="14" cy="14" r="14" fill="#0052FF"/><path d="M14 6C9.582 6 6 9.582 6 14s3.582 8 8 8 8-3.582 8-8-3.582-8-8-8zm-2.5 10.5v-5h5v5h-5z" fill="#fff"/></svg>
+                        Connect Coinbase Wallet
+                      </button>
+                      <button className="btn-outline" style={{ width: "100%", padding: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }} onClick={connectMetaMask}>
+                        <svg width="18" height="18" viewBox="0 0 35 33" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M32.958 1L19.4 10.71l2.522-5.962L32.958 1z" fill="#E17726"/><path d="M2.042 1l13.44 9.808-2.4-5.96L2.042 1z" fill="#E27625"/><path d="M28.18 23.26l-3.6 5.51 7.7 2.12 2.21-7.52-6.31-.11z" fill="#E27625"/><path d="M.53 23.37l2.2 7.52 7.69-2.12-3.59-5.51-6.3.11z" fill="#E27625"/></svg>
+                        Connect MetaMask
+                      </button>
+                    </div>
                   )}
                   {walletError && <div className="error-msg">{walletError}</div>}
                 </div>
