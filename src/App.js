@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import CoinbaseWalletSDK from "@coinbase/wallet-sdk";
 
 // Set this to your ETH wallet address to receive payments
@@ -313,6 +314,7 @@ export default function App() {
         <span>Terms · Privacy · Contact</span>
       </footer>
       <Analytics />
+      <SpeedInsights />
     </div>
   );
 }
