@@ -31,7 +31,6 @@ export default function App() {
   const [section, setSection] = useState("products");
   const [cart, setCart] = useState([]);
   const[openFaq, setOpenFaq] = useState(null);
-  const [commerceLoading, setCommerceLoading] = useState(false);
   const [walletAddress, setWalletAddress] = useState(null);
   const [txHash, setTxHash] = useState(null);
   const [walletError, setWalletError] = useState(null);
@@ -92,25 +91,6 @@ export default function App() {
       setWalletError(err.message || "Transaction failed. Please try again.");
     } finally {
       setPaymentLoading(false);
-    }
-  };
-
-  const payWithCommerce = async () => {
-    setCommerceLoading(true);
-    try {
-      const description = cart.map((i) => `${i.name} x${i.qty}`).join(", ");
-      const res = await fetch("/api/create-charge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: cartTotal, description }),
-      });
-      const data = await res.json();
-      if (data.url) window.open(data.url, "_blank", "noopener");
-      else setWalletError("Could not create payment. Please try again.");
-    } catch {
-      setWalletError("Could not reach payment server. Please try again.");
-    } finally {
-      setCommerceLoading(false);
     }
   };
 
@@ -260,9 +240,9 @@ export default function App() {
                 </div>
                 {/* Web3 Wallet Payment */}
                 <div className="wallet-box">
-                  <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", marginBottom: 12 }}>Pay with Web3 Wallet</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", marginBottom: 12 }}>Pay with Crypto</div>
                   <div style={{ fontSize: 13, color: "#6A6A62", marginBottom: 16, lineHeight: 1.6 }}>
-                    Connect MetaMask or Coinbase Wallet to send ETH directly — no middlemen, instant settlement.
+                    Connect your Coinbase Wallet or MetaMask to send ETH directly to us — instant settlement, no middlemen.
                   </div>
                   {txHash ? (
                     <>
@@ -296,19 +276,6 @@ export default function App() {
                   )}
                   {walletError && <div className="error-msg">{walletError}</div>}
                 </div>
-
-                <div className="divider">or</div>
-
-                {/* Coinbase Commerce — card, bank, or any crypto */}
-                <button
-                  className="btn-outline"
-                  style={{ width: "100%", padding: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
-                  onClick={payWithCommerce}
-                  disabled={commerceLoading}
-                >
-                  <svg width="18" height="18" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="14" cy="14" r="14" fill="#0052FF"/><path d="M14 6C9.582 6 6 9.582 6 14s3.582 8 8 8 8-3.582 8-8-3.582-8-8-8zm-2.5 10.5v-5h5v5h-5z" fill="#fff"/></svg>
-                  {commerceLoading ? "Opening checkout…" : "Pay with Coinbase Commerce (card, crypto)"}
-                </button>
 
                 <div style={{ marginTop: 24, fontSize: 12, color: "#8A8A82", lineHeight: 1.6, textAlign: "center" }}>
                   <strong>Disclaimer:</strong> This product is intended strictly for laboratory research purposes only. Not for human or animal consumption. Not for use in diagnostic or therapeutic applications.
