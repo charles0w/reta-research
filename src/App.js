@@ -100,6 +100,16 @@ export default function App() {
     }
   };
 
+  if (process.env.REACT_APP_KILL_SWITCH === "true") {
+    return (
+      <div style={{ fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif", background: "#FAFAF8", color: "#1A1A18", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif&display=swap'); * { margin:0; padding:0; box-sizing:border-box; }`}</style>
+        <span style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 32 }}>Ace Peptides</span>
+        <p style={{ fontSize: 15, color: "#6A6A62" }}>We're temporarily unavailable. Please check back soon.</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif", background: "#FAFAF8", color: "#1A1A18", minHeight: "100vh" }}>
       <style>{`
