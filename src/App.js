@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import CoinbaseWalletSDK from "@coinbase/wallet-sdk";
 
 // Set this to your ETH wallet address to receive payments
@@ -311,6 +312,7 @@ export default function App() {
         <span>© 2026 Ace Peptides (ace-peptides.com). All products for laboratory research use only.</span>
         <span>Terms · Privacy · Contact</span>
       </footer>
+      <Analytics />
     </div>
   );
 }
