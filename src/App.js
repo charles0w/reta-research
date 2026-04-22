@@ -1,5 +1,12 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { MoonPayBuyWidget } from "@moonpay/moonpay-react";
+import CoinbaseWalletSDK from "@coinbase/wallet-sdk";
+
+// Set this to your ETH wallet address to receive payments
+const RECIPIENT_ADDRESS = "0x74e9af21c6060328371b3813689b472132f89cbd";
+
+const coinbaseWallet = new CoinbaseWalletSDK({ appName: "Ace Peptides" });
+const coinbaseProvider = coinbaseWallet.makeWeb3Provider();
 
 const products =[
   { id: 1, name: "Retatrutide 5mg", purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 89.00, stock: true },
@@ -26,6 +33,11 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const[openFaq, setOpenFaq] = useState(null);
   const [showMoonPay, setShowMoonPay] = useState(false);
+  const [walletAddress, setWalletAddress] = useState(null);
+  const [txHash, setTxHash] = useState(null);
+  const [walletError, setWalletError] = useState(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const activeProvider = useRef(null);
 
   const addToCart = (p) => {
     setCart((prev) => {
@@ -36,6 +48,53 @@ export default function App() {
   };
 
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
+  const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+  const connectWallet = async (provider) => {
+    setWalletError(null);
+    try {
+      const accounts = await provider.request({ method: "eth_requestAccounts" });
+      activeProvider.current = provider;
+      setWalletAddress(accounts[0]);
+    } catch {
+      setWalletError("Wallet connection was rejected.");
+    }
+  };
+
+  const connectMetaMask = () => {
+    if (!window.ethereum) {
+      setWalletError("MetaMask not detected. Please install the MetaMask extension.");
+      return;
+    }
+    connectWallet(window.ethereum);
+  };
+
+  const connectCoinbase = () => connectWallet(coinbaseProvider);
+
+  const payWithWallet = async () => {
+    const provider = activeProvider.current;
+    if (!provider || !walletAddress) return;
+    setPaymentLoading(true);
+    setWalletError(null);
+    setTxHash(null);
+    try {
+      const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
+      const data = await res.json();
+      const ethPrice = data.ethereum.usd;
+      const ethAmount = cartTotal / ethPrice;
+      const weiAmount = BigInt(Math.round(ethAmount * 1e14)) * 10000n;
+      const hexValue = "0x" + weiAmount.toString(16);
+      const tx = await provider.request({
+        method: "eth_sendTransaction",
+        params: [{ from: walletAddress, to: RECIPIENT_ADDRESS, value: hexValue }],
+      });
+      setTxHash(tx);
+    } catch (err) {
+      setWalletError(err.message || "Transaction failed. Please try again.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
 
   return (
     <div style={{ fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif", background: "#FAFAF8", color: "#1A1A18", minHeight: "100vh" }}>
@@ -56,6 +115,13 @@ export default function App() {
         .faq-q { padding: 20px 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 15px; }
         .faq-a { padding: 0 0 20px; font-size: 14px; color: #6A6A62; line-height: 1.7; }
         .serif { font-family: 'Instrument Serif', Georgia, serif; }
+        .wallet-box { border: 1px solid #E8E8E4; padding: 24px; margin-top: 8px; }
+        .wallet-address { font-size: 12px; color: #6A6A62; font-family: monospace; word-break: break-all; margin-top: 8px; }
+        .tx-hash { font-size: 11px; color: #6A6A62; font-family: monospace; word-break: break-all; margin-top: 8px; }
+        .divider { display: flex; align-items: center; gap: 16px; margin: 24px 0; color: #AAA; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #E8E8E4; }
+        .error-msg { color: #B04040; font-size: 13px; margin-top: 12px; }
+        .success-msg { color: #2A7A2A; font-size: 13px; margin-top: 12px; }
       `}</style>
 
       {/* Header */}
@@ -172,18 +238,63 @@ export default function App() {
                 ))}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "24px 0", fontSize: 18, fontWeight: 600 }}>
                   <span>Total</span>
-                  <span>${cart.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2)}</span>
+                  <span>${cartTotal.toFixed(2)}</span>
                 </div>
-                <button className="btn-primary" style={{ width: "100%", padding: 16, marginTop: 8 }} onClick={() => setShowMoonPay(true)}>Pay with Crypto</button>
+                {/* Web3 Wallet Payment */}
+                <div className="wallet-box">
+                  <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", marginBottom: 12 }}>Pay with Web3 Wallet</div>
+                  <div style={{ fontSize: 13, color: "#6A6A62", marginBottom: 16, lineHeight: 1.6 }}>
+                    Connect MetaMask or Coinbase Wallet to send ETH directly — no middlemen, instant settlement.
+                  </div>
+                  {txHash ? (
+                    <>
+                      <div className="success-msg">Payment sent successfully.</div>
+                      <div className="tx-hash">Tx: {txHash}</div>
+                    </>
+                  ) : walletAddress ? (
+                    <>
+                      <div style={{ fontSize: 12, color: "#8A8A82" }}>Connected</div>
+                      <div className="wallet-address">{walletAddress}</div>
+                      <button
+                        className="btn-primary"
+                        style={{ width: "100%", padding: 14, marginTop: 16 }}
+                        onClick={payWithWallet}
+                        disabled={paymentLoading}
+                      >
+                        {paymentLoading ? "Awaiting wallet…" : `Pay $${cartTotal.toFixed(2)} in ETH`}
+                      </button>
+                    </>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <button className="btn-primary" style={{ width: "100%", padding: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }} onClick={connectCoinbase}>
+                        <svg width="18" height="18" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="14" cy="14" r="14" fill="#0052FF"/><path d="M14 6C9.582 6 6 9.582 6 14s3.582 8 8 8 8-3.582 8-8-3.582-8-8-8zm-2.5 10.5v-5h5v5h-5z" fill="#fff"/></svg>
+                        Connect Coinbase Wallet
+                      </button>
+                      <button className="btn-outline" style={{ width: "100%", padding: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }} onClick={connectMetaMask}>
+                        <svg width="18" height="18" viewBox="0 0 35 33" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M32.958 1L19.4 10.71l2.522-5.962L32.958 1z" fill="#E17726"/><path d="M2.042 1l13.44 9.808-2.4-5.96L2.042 1z" fill="#E27625"/><path d="M28.18 23.26l-3.6 5.51 7.7 2.12 2.21-7.52-6.31-.11z" fill="#E27625"/><path d="M.53 23.37l2.2 7.52 7.69-2.12-3.59-5.51-6.3.11z" fill="#E27625"/></svg>
+                        Connect MetaMask
+                      </button>
+                    </div>
+                  )}
+                  {walletError && <div className="error-msg">{walletError}</div>}
+                </div>
+
+                <div className="divider">or</div>
+
+                {/* MoonPay fallback */}
+                <button className="btn-outline" style={{ width: "100%", padding: 14 }} onClick={() => setShowMoonPay(true)}>
+                  Pay via MoonPay (card / exchange)
+                </button>
                 <MoonPayBuyWidget
                   variant="overlay"
                   baseCurrencyCode="usd"
-                  baseCurrencyAmount={String(cart.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2))}
+                  baseCurrencyAmount={String(cartTotal.toFixed(2))}
                   defaultCurrencyCode="eth"
                   visible={showMoonPay}
                   onCloseOverlay={() => setShowMoonPay(false)}
                 />
-                <div style={{ marginTop: 16, fontSize: 12, color: "#8A8A82", lineHeight: 1.6, textAlign: "center" }}>
+
+                <div style={{ marginTop: 24, fontSize: 12, color: "#8A8A82", lineHeight: 1.6, textAlign: "center" }}>
                   <strong>Disclaimer:</strong> This product is intended strictly for laboratory research purposes only. Not for human or animal consumption. Not for use in diagnostic or therapeutic applications.
                 </div>
               </>
