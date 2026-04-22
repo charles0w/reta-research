@@ -45,6 +45,12 @@ export default function App() {
     });
   };
 
+  const removeFromCart = (id) => setCart((prev) => prev.filter((i) => i.id !== id));
+
+  const updateQty = (id, delta) => setCart((prev) =>
+    prev.flatMap((i) => i.id !== id ? [i] : i.qty + delta < 1 ? [] : [{ ...i, qty: i.qty + delta }])
+  );
+
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
 
@@ -229,7 +235,12 @@ export default function App() {
                   <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 0", borderBottom: "1px solid #E8E8E4" }}>
                     <div>
                       <div style={{ fontWeight: 600 }}>{item.name}</div>
-                      <div style={{ fontSize: 13, color: "#8A8A82" }}>Qty: {item.qty}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+                        <button onClick={() => updateQty(item.id, -1)} style={{ border: "1px solid #D0D0C8", background: "none", width: 24, height: 24, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                        <span style={{ fontSize: 13, color: "#8A8A82", minWidth: 16, textAlign: "center" }}>{item.qty}</span>
+                        <button onClick={() => updateQty(item.id, 1)} style={{ border: "1px solid #D0D0C8", background: "none", width: 24, height: 24, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                        <button onClick={() => removeFromCart(item.id)} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 12, color: "#B04040", letterSpacing: ".04em", textTransform: "uppercase", padding: "0 4px" }}>Remove</button>
+                      </div>
                     </div>
                     <span style={{ fontWeight: 600 }}>${(item.price * item.qty).toFixed(2)}</span>
                   </div>
