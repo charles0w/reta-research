@@ -76,12 +76,13 @@ const PARTICLES = [
   { id: 44, size: 2,   left: 89, delay: 13.5, dur: 12 },
 ];
 
-// mix-blend-mode:screen makes the black background of the logo
-// transparent against the site's dark background
-const AceLogo = ({ size = 80 }) => (
+// filter and mix-blend-mode must be on the SAME element — a filter on any
+// ancestor creates an isolated compositing group, breaking screen blending.
+const AceLogo = ({ size = 80, className = "" }) => (
   <img
     src="/ace-logo.png"
     alt="Ace Peptides"
+    className={className}
     style={{ width: size, height: "auto", display: "block", mixBlendMode: "screen" }}
   />
 );
@@ -487,7 +488,7 @@ export default function App() {
           style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
           onClick={() => setSection("products")}
         >
-          <div className="logo-glow"><AceLogo size={34} /></div>
+          <AceLogo size={34} className="logo-glow" />
           <div style={{ lineHeight: 1 }}>
             <div style={{ fontFamily: "'Cinzel', serif", fontSize: 15, letterSpacing: "0.2em", color: "#F0EFE8" }}>ACE</div>
             <div style={{ fontSize: 8, letterSpacing: "0.28em", textTransform: "uppercase", color: "#4A4A42", marginTop: 3 }}>PEPTIDES</div>
@@ -527,8 +528,8 @@ export default function App() {
 
             {/* Hero */}
             <div style={{ textAlign: "center", marginBottom: 96 }}>
-              <div className="logo-float logo-glow" style={{ display: "inline-block", marginBottom: 28 }}>
-                <AceLogo size={110} />
+              <div className="logo-float" style={{ display: "inline-block", marginBottom: 28 }}>
+                <AceLogo size={110} className="logo-glow" />
               </div>
               <div style={{ fontFamily: "'Cinzel', serif", fontSize: 54, fontWeight: 400, letterSpacing: "0.22em", lineHeight: 1 }}>
                 <span className="gold-text">ACE</span>
