@@ -102,34 +102,50 @@ const SvgDefs = () => (
 );
 
 const SpadeIcon = ({ size = 80, fill = false }) => (
-  <svg width={size} height={size * 1.15} viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width={size} height={size * 1.18} viewBox="-8 0 116 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    {/* Filled spade body */}
     <path
       d="M50 5 C60 12,92 28,92 52 C92 72,76 80,60 72 C64 83,70 88,78 93 L22 93 C30 88,36 83,40 72 C24 80,8 72,8 52 C8 28,40 12,50 5Z"
-      stroke="url(#ap-gold)" strokeWidth="1.8"
-      fill={fill ? "rgba(212,175,55,0.05)" : "none"}
+      fill={fill ? "#0D0D0D" : "rgba(8,8,8,0.55)"}
+      stroke="url(#ap-gold)" strokeWidth="2.2"
       filter="url(#ap-glow)"
     />
-    <rect x="43" y="93" width="14" height="5" rx="1" fill="url(#ap-gold)" opacity="0.45" />
-    <circle cx="50" cy="22" r="3"   fill="url(#ap-gold)" filter="url(#ap-glow)" />
-    <circle cx="42" cy="38" r="1.8" fill="url(#ap-gold)" />
-    <circle cx="58" cy="38" r="1.8" fill="url(#ap-gold)" />
-    <circle cx="36" cy="52" r="1.8" fill="url(#ap-gold)" />
-    <circle cx="64" cy="52" r="1.8" fill="url(#ap-gold)" />
-    <circle cx="29" cy="72" r="2"   fill="url(#ap-gold)" />
-    <circle cx="71" cy="72" r="2"   fill="url(#ap-gold)" />
-    <circle cx="44" cy="54" r="1.3" fill="url(#ap-gold)" opacity="0.8" />
-    <circle cx="56" cy="54" r="1.3" fill="url(#ap-gold)" opacity="0.8" />
-    <line x1="50" y1="22" x2="42" y2="38" stroke="url(#ap-gold)" strokeWidth="0.85" opacity="0.7" />
-    <line x1="50" y1="22" x2="58" y2="38" stroke="url(#ap-gold)" strokeWidth="0.85" opacity="0.7" />
-    <line x1="42" y1="38" x2="36" y2="52" stroke="url(#ap-gold)" strokeWidth="0.85" opacity="0.7" />
-    <line x1="58" y1="38" x2="64" y2="52" stroke="url(#ap-gold)" strokeWidth="0.85" opacity="0.7" />
-    <line x1="36" y1="52" x2="29" y2="72" stroke="url(#ap-gold)" strokeWidth="0.85" opacity="0.7" />
-    <line x1="64" y1="52" x2="71" y2="72" stroke="url(#ap-gold)" strokeWidth="0.85" opacity="0.7" />
-    <line x1="44" y1="54" x2="56" y2="54" stroke="url(#ap-gold)" strokeWidth="0.85" opacity="0.6" />
-    <ellipse cx="50" cy="50" rx="56" ry="17" stroke="url(#ap-silver)" strokeWidth="1.3" fill="none"
-      transform="rotate(-32, 50, 50)" strokeDasharray="88 108" />
-    <path d="M80 20 L81.4 24.1 L85.7 25 L81.4 25.9 L80 30 L78.6 25.9 L74.3 25 L78.6 24.1 Z"
-          fill="#D0D0D0" opacity="0.88" />
+    {/* Base foot */}
+    <rect x="43" y="93" width="14" height="5" rx="1.5" fill="url(#ap-gold)" opacity="0.55" />
+
+    {/* Molecular network lines */}
+    <line x1="50" y1="21" x2="41" y2="37" stroke="url(#ap-gold)" strokeWidth="1" opacity="0.72" />
+    <line x1="50" y1="21" x2="59" y2="37" stroke="url(#ap-gold)" strokeWidth="1" opacity="0.72" />
+    <line x1="41" y1="37" x2="33" y2="54" stroke="url(#ap-gold)" strokeWidth="1" opacity="0.68" />
+    <line x1="59" y1="37" x2="67" y2="54" stroke="url(#ap-gold)" strokeWidth="1" opacity="0.68" />
+    <line x1="33" y1="54" x2="26" y2="71" stroke="url(#ap-gold)" strokeWidth="1" opacity="0.62" />
+    <line x1="67" y1="54" x2="74" y2="71" stroke="url(#ap-gold)" strokeWidth="1" opacity="0.62" />
+    <line x1="38" y1="48" x2="62" y2="48" stroke="url(#ap-gold)" strokeWidth="1" opacity="0.58" />
+
+    {/* Molecular nodes */}
+    <circle cx="50" cy="21" r="3.8" fill="url(#ap-gold)" filter="url(#ap-glow)" />
+    <circle cx="41" cy="37" r="2.3" fill="url(#ap-gold)" />
+    <circle cx="59" cy="37" r="2.3" fill="url(#ap-gold)" />
+    <circle cx="33" cy="54" r="2.1" fill="url(#ap-gold)" />
+    <circle cx="67" cy="54" r="2.1" fill="url(#ap-gold)" />
+    <circle cx="26" cy="71" r="2.5" fill="url(#ap-gold)" />
+    <circle cx="74" cy="71" r="2.5" fill="url(#ap-gold)" />
+    <circle cx="38" cy="48" r="1.5" fill="url(#ap-gold)" opacity="0.85" />
+    <circle cx="62" cy="48" r="1.5" fill="url(#ap-gold)" opacity="0.85" />
+
+    {/* Central "A" */}
+    <text x="50" y="62" textAnchor="middle" dominantBaseline="auto"
+      fontFamily="'Cinzel', serif" fontSize="18" fontWeight="700"
+      fill="url(#ap-gold)" filter="url(#ap-glow)" opacity="0.95">A</text>
+
+    {/* Silver orbital streak — large to wrap around full spade */}
+    <ellipse cx="50" cy="50" rx="68" ry="21"
+      stroke="url(#ap-silver)" strokeWidth="1.8" fill="none"
+      transform="rotate(-32, 50, 50)" strokeDasharray="98 215" />
+
+    {/* 4-pointed star focus point at base */}
+    <path d="M50 101 L51.8 105.8 L56.8 106.8 L51.8 107.8 L50 112.6 L48.2 107.8 L43.2 106.8 L48.2 105.8 Z"
+          fill="#C8C8C8" opacity="0.94" />
   </svg>
 );
 
