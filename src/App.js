@@ -84,14 +84,33 @@ const SvgDefs = () => (
         <stop offset="45%"  stopColor="#D4AF37" />
         <stop offset="100%" stopColor="#9A7A1A" />
       </linearGradient>
-      <linearGradient id="ap-silver" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%"   stopColor="rgba(170,170,170,0)" />
-        <stop offset="35%"  stopColor="#B0B0B0" />
-        <stop offset="58%"  stopColor="#EBEBEB" />
-        <stop offset="100%" stopColor="rgba(170,170,170,0)" />
+      {/* Diagonal gradient so it follows the orbital arc direction */}
+      <linearGradient id="ap-silver" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%"   stopColor="rgba(200,200,200,0)" />
+        <stop offset="28%"  stopColor="#C0C0C0" />
+        <stop offset="52%"  stopColor="#F4F4F4" />
+        <stop offset="74%"  stopColor="#C8C8C8" />
+        <stop offset="100%" stopColor="rgba(200,200,200,0)" />
       </linearGradient>
-      <filter id="ap-glow" x="-30%" y="-30%" width="160%" height="160%">
+      {/* Outer glow for spade body */}
+      <filter id="ap-glow" x="-40%" y="-40%" width="180%" height="180%">
         <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
+        <feMerge>
+          <feMergeNode in="coloredBlur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+      {/* Tight glow for molecular nodes and "A" */}
+      <filter id="ap-node-glow" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="1.6" result="coloredBlur" />
+        <feMerge>
+          <feMergeNode in="coloredBlur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+      {/* Soft spread glow for the silver orbital streak */}
+      <filter id="ap-streak-glow" x="-15%" y="-80%" width="130%" height="260%">
+        <feGaussianBlur stdDeviation="2.4" result="coloredBlur" />
         <feMerge>
           <feMergeNode in="coloredBlur" />
           <feMergeNode in="SourceGraphic" />
@@ -101,51 +120,60 @@ const SvgDefs = () => (
   </svg>
 );
 
-const SpadeIcon = ({ size = 80, fill = false }) => (
-  <svg width={size} height={size * 1.18} viewBox="-8 0 116 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-    {/* Filled spade body */}
+const SpadeIcon = ({ size = 80 }) => (
+  <svg width={size} height={size * 1.18} viewBox="-20 -12 140 145" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+    {/* ── LAYER 1: Silver orbital arc drawn FIRST ──
+        Spade fill is opaque so it covers the arc in the middle,
+        making the arc appear to wrap behind the spade. */}
+    <path d="M -16 88 Q 50 -20 118 20"
+      stroke="url(#ap-silver)" strokeWidth="2.6" fill="none"
+      filter="url(#ap-streak-glow)" />
+
+    {/* ── LAYER 2: Spade body ── */}
     <path
       d="M50 5 C60 12,92 28,92 52 C92 72,76 80,60 72 C64 83,70 88,78 93 L22 93 C30 88,36 83,40 72 C24 80,8 72,8 52 C8 28,40 12,50 5Z"
-      fill={fill ? "#0D0D0D" : "rgba(8,8,8,0.55)"}
-      stroke="url(#ap-gold)" strokeWidth="2.2"
+      fill="#0C0C0C"
+      stroke="url(#ap-gold)" strokeWidth="2.4"
       filter="url(#ap-glow)"
     />
+    {/* Inset highlight — gives the spade 3D engraved depth */}
+    <path
+      d="M50 11 C59 17,86 31,86 53 C86 70,73 79,60 72 C63 82,68 87,75 91 L25 91 C32 87,37 82,40 72 C27 79,14 70,14 53 C14 31,41 17,50 11Z"
+      stroke="url(#ap-gold)" strokeWidth="0.85" fill="none" opacity="0.24"
+    />
+
     {/* Base foot */}
-    <rect x="43" y="93" width="14" height="5" rx="1.5" fill="url(#ap-gold)" opacity="0.55" />
+    <rect x="43" y="93" width="14" height="5.5" rx="2" fill="url(#ap-gold)" opacity="0.62" />
 
-    {/* Molecular network lines */}
-    <line x1="50" y1="21" x2="41" y2="37" stroke="url(#ap-gold)" strokeWidth="1" opacity="0.72" />
-    <line x1="50" y1="21" x2="59" y2="37" stroke="url(#ap-gold)" strokeWidth="1" opacity="0.72" />
-    <line x1="41" y1="37" x2="33" y2="54" stroke="url(#ap-gold)" strokeWidth="1" opacity="0.68" />
-    <line x1="59" y1="37" x2="67" y2="54" stroke="url(#ap-gold)" strokeWidth="1" opacity="0.68" />
-    <line x1="33" y1="54" x2="26" y2="71" stroke="url(#ap-gold)" strokeWidth="1" opacity="0.62" />
-    <line x1="67" y1="54" x2="74" y2="71" stroke="url(#ap-gold)" strokeWidth="1" opacity="0.62" />
-    <line x1="38" y1="48" x2="62" y2="48" stroke="url(#ap-gold)" strokeWidth="1" opacity="0.58" />
+    {/* ── LAYER 3: Molecular A-network ── */}
+    <line x1="50" y1="20" x2="40" y2="37" stroke="url(#ap-gold)" strokeWidth="1.15" opacity="0.8" />
+    <line x1="50" y1="20" x2="60" y2="37" stroke="url(#ap-gold)" strokeWidth="1.15" opacity="0.8" />
+    <line x1="40" y1="37" x2="32" y2="55" stroke="url(#ap-gold)" strokeWidth="1.15" opacity="0.74" />
+    <line x1="60" y1="37" x2="68" y2="55" stroke="url(#ap-gold)" strokeWidth="1.15" opacity="0.74" />
+    <line x1="32" y1="55" x2="25" y2="72" stroke="url(#ap-gold)" strokeWidth="1"   opacity="0.66" />
+    <line x1="68" y1="55" x2="75" y2="72" stroke="url(#ap-gold)" strokeWidth="1"   opacity="0.66" />
+    <line x1="37" y1="49" x2="63" y2="49" stroke="url(#ap-gold)" strokeWidth="1"   opacity="0.62" />
 
-    {/* Molecular nodes */}
-    <circle cx="50" cy="21" r="3.8" fill="url(#ap-gold)" filter="url(#ap-glow)" />
-    <circle cx="41" cy="37" r="2.3" fill="url(#ap-gold)" />
-    <circle cx="59" cy="37" r="2.3" fill="url(#ap-gold)" />
-    <circle cx="33" cy="54" r="2.1" fill="url(#ap-gold)" />
-    <circle cx="67" cy="54" r="2.1" fill="url(#ap-gold)" />
-    <circle cx="26" cy="71" r="2.5" fill="url(#ap-gold)" />
-    <circle cx="74" cy="71" r="2.5" fill="url(#ap-gold)" />
-    <circle cx="38" cy="48" r="1.5" fill="url(#ap-gold)" opacity="0.85" />
-    <circle cx="62" cy="48" r="1.5" fill="url(#ap-gold)" opacity="0.85" />
+    {/* Nodes */}
+    <circle cx="50" cy="20" r="4.4" fill="url(#ap-gold)" filter="url(#ap-node-glow)" />
+    <circle cx="40" cy="37" r="2.8" fill="url(#ap-gold)" filter="url(#ap-node-glow)" />
+    <circle cx="60" cy="37" r="2.8" fill="url(#ap-gold)" filter="url(#ap-node-glow)" />
+    <circle cx="32" cy="55" r="2.4" fill="url(#ap-gold)" />
+    <circle cx="68" cy="55" r="2.4" fill="url(#ap-gold)" />
+    <circle cx="25" cy="72" r="2.8" fill="url(#ap-gold)" />
+    <circle cx="75" cy="72" r="2.8" fill="url(#ap-gold)" />
+    <circle cx="37" cy="49" r="1.7" fill="url(#ap-gold)" opacity="0.92" />
+    <circle cx="63" cy="49" r="1.7" fill="url(#ap-gold)" opacity="0.92" />
 
     {/* Central "A" */}
-    <text x="50" y="62" textAnchor="middle" dominantBaseline="auto"
-      fontFamily="'Cinzel', serif" fontSize="18" fontWeight="700"
-      fill="url(#ap-gold)" filter="url(#ap-glow)" opacity="0.95">A</text>
+    <text x="50" y="60" textAnchor="middle" dominantBaseline="middle"
+      fontFamily="'Cinzel', serif" fontSize="26" fontWeight="700"
+      fill="url(#ap-gold)" filter="url(#ap-node-glow)" opacity="0.97">A</text>
 
-    {/* Silver orbital streak — large to wrap around full spade */}
-    <ellipse cx="50" cy="50" rx="68" ry="21"
-      stroke="url(#ap-silver)" strokeWidth="1.8" fill="none"
-      transform="rotate(-32, 50, 50)" strokeDasharray="98 215" />
-
-    {/* 4-pointed star focus point at base */}
-    <path d="M50 101 L51.8 105.8 L56.8 106.8 L51.8 107.8 L50 112.6 L48.2 107.8 L43.2 106.8 L48.2 105.8 Z"
-          fill="#C8C8C8" opacity="0.94" />
+    {/* ── LAYER 4: 4-pointed star focus point at base ── */}
+    <path d="M50 100 L52.2 105.8 L58.2 106.8 L52.2 107.8 L50 113.5 L47.8 107.8 L41.8 106.8 L47.8 105.8 Z"
+          fill="#D2D2D2" opacity="0.96" filter="url(#ap-node-glow)" />
   </svg>
 );
 
@@ -225,7 +253,7 @@ function CardSpread({ products, onAdd }) {
 
             {/* Center content */}
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
-              <SpadeIcon size={64} fill />
+              <SpadeIcon size={64} />
               <div style={{ textAlign: "center", marginTop: 6 }}>
                 <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: "0.05em", color: "#F0EFE8", marginBottom: 10 }}>
                   {p.name}
@@ -594,7 +622,7 @@ export default function App() {
             {/* Hero */}
             <div style={{ textAlign: "center", marginBottom: 96 }}>
               <div className="logo-float logo-glow" style={{ display: "inline-block", marginBottom: 28 }}>
-                <SpadeIcon size={110} fill />
+                <SpadeIcon size={110} />
               </div>
               <div style={{ fontFamily: "'Cinzel', serif", fontSize: 54, fontWeight: 400, letterSpacing: "0.22em", lineHeight: 1 }}>
                 <span className="gold-text">ACE</span>
