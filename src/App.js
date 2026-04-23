@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import CoinbaseWalletSDK from "@coinbase/wallet-sdk";
@@ -76,16 +76,47 @@ const PARTICLES = [
   { id: 44, size: 2,   left: 89, delay: 13.5, dur: 12 },
 ];
 
-// filter and mix-blend-mode must be on the SAME element — a filter on any
-// ancestor creates an isolated compositing group, breaking screen blending.
-const AceLogo = ({ size = 80, className = "" }) => (
-  <img
-    src="/ace-logo.png"
-    alt="Ace Peptides"
-    className={className}
-    style={{ width: size, height: "auto", display: "block", mixBlendMode: "screen" }}
-  />
-);
+// Canvas-based background removal: draws the image then zeros out near-black
+// pixels, giving a truly transparent background regardless of CSS stacking contexts.
+const AceLogo = ({ size = 80, className = "" }) => {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      canvas.width = w;
+      canvas.height = h;
+      ctx.drawImage(img, 0, 0);
+      try {
+        const id = ctx.getImageData(0, 0, w, h);
+        const d = id.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const brightness = (d[i] + d[i + 1] + d[i + 2]) / 3;
+          if (brightness < 35) {
+            d[i + 3] = 0; // fully transparent
+          } else if (brightness < 80) {
+            d[i + 3] = Math.round(((brightness - 35) / 45) * 255); // smooth edge
+          }
+        }
+        ctx.putImageData(id, 0, 0);
+      } catch (_) {}
+    };
+    img.src = "/ace-logo.png";
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className={className}
+      style={{ width: size, height: "auto", display: "block" }}
+    />
+  );
+};
 
 // Playing-card spread component
 function CardSpread({ products, onAdd }) {
