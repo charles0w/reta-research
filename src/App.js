@@ -27,26 +27,55 @@ const faqs = [
   { q: "Who can purchase?", a: "Products are available to qualified researchers, academic institutions, and licensed laboratories. By placing an order you confirm your purchase is solely for legitimate research purposes." },
 ];
 
+// 45 particles — dense golden field
 const PARTICLES = [
-  { id: 0,  size: 2,   left: 5,  delay: 0,   duration: 14 },
-  { id: 1,  size: 1.5, left: 12, delay: 3,   duration: 11 },
-  { id: 2,  size: 2.5, left: 20, delay: 6,   duration: 13 },
-  { id: 3,  size: 1,   left: 28, delay: 1,   duration: 16 },
-  { id: 4,  size: 2,   left: 35, delay: 4,   duration: 12 },
-  { id: 5,  size: 1.5, left: 42, delay: 7,   duration: 10 },
-  { id: 6,  size: 3,   left: 50, delay: 2,   duration: 15 },
-  { id: 7,  size: 1,   left: 58, delay: 5,   duration: 11 },
-  { id: 8,  size: 2,   left: 65, delay: 8,   duration: 13 },
-  { id: 9,  size: 1.5, left: 72, delay: 0.5, duration: 14 },
-  { id: 10, size: 2.5, left: 80, delay: 3.5, duration: 12 },
-  { id: 11, size: 1,   left: 88, delay: 6.5, duration: 16 },
-  { id: 12, size: 2,   left: 94, delay: 1.5, duration: 10 },
-  { id: 13, size: 1.5, left: 8,  delay: 9,   duration: 11 },
-  { id: 14, size: 1,   left: 55, delay: 2.5, duration: 13 },
-  { id: 15, size: 2,   left: 76, delay: 7.5, duration: 14 },
+  { id: 0,  size: 1.5, left: 3,  delay: 0,    dur: 10 },
+  { id: 1,  size: 1,   left: 8,  delay: 2,    dur: 12 },
+  { id: 2,  size: 2,   left: 13, delay: 5,    dur: 9  },
+  { id: 3,  size: 1.2, left: 18, delay: 1,    dur: 14 },
+  { id: 4,  size: 2.5, left: 23, delay: 3,    dur: 11 },
+  { id: 5,  size: 1,   left: 28, delay: 7,    dur: 13 },
+  { id: 6,  size: 1.8, left: 33, delay: 0.5,  dur: 10 },
+  { id: 7,  size: 3,   left: 38, delay: 4,    dur: 15 },
+  { id: 8,  size: 1.5, left: 43, delay: 8,    dur: 11 },
+  { id: 9,  size: 2,   left: 48, delay: 2.5,  dur: 12 },
+  { id: 10, size: 1,   left: 53, delay: 6,    dur: 9  },
+  { id: 11, size: 2.5, left: 58, delay: 1.5,  dur: 14 },
+  { id: 12, size: 1.8, left: 63, delay: 9,    dur: 10 },
+  { id: 13, size: 1,   left: 68, delay: 3.5,  dur: 13 },
+  { id: 14, size: 2,   left: 73, delay: 0,    dur: 11 },
+  { id: 15, size: 3,   left: 78, delay: 5,    dur: 15 },
+  { id: 16, size: 1.5, left: 83, delay: 7.5,  dur: 12 },
+  { id: 17, size: 1,   left: 88, delay: 2,    dur: 10 },
+  { id: 18, size: 2,   left: 93, delay: 4.5,  dur: 14 },
+  { id: 19, size: 1.5, left: 97, delay: 1,    dur: 11 },
+  { id: 20, size: 3.5, left: 6,  delay: 6,    dur: 16 },
+  { id: 21, size: 2.5, left: 15, delay: 3,    dur: 13 },
+  { id: 22, size: 4,   left: 25, delay: 8,    dur: 18 },
+  { id: 23, size: 2,   left: 35, delay: 1,    dur: 11 },
+  { id: 24, size: 3,   left: 45, delay: 5,    dur: 15 },
+  { id: 25, size: 2.5, left: 55, delay: 0,    dur: 12 },
+  { id: 26, size: 3.5, left: 65, delay: 7,    dur: 16 },
+  { id: 27, size: 2,   left: 75, delay: 3.5,  dur: 13 },
+  { id: 28, size: 4,   left: 85, delay: 9,    dur: 18 },
+  { id: 29, size: 3,   left: 95, delay: 2,    dur: 14 },
+  { id: 30, size: 1,   left: 10, delay: 10,   dur: 9  },
+  { id: 31, size: 2,   left: 20, delay: 11,   dur: 12 },
+  { id: 32, size: 1.5, left: 30, delay: 12,   dur: 10 },
+  { id: 33, size: 2.5, left: 40, delay: 9.5,  dur: 13 },
+  { id: 34, size: 1,   left: 50, delay: 10.5, dur: 11 },
+  { id: 35, size: 2,   left: 60, delay: 11.5, dur: 14 },
+  { id: 36, size: 1.5, left: 70, delay: 8.5,  dur: 10 },
+  { id: 37, size: 3,   left: 80, delay: 4,    dur: 15 },
+  { id: 38, size: 1,   left: 90, delay: 6,    dur: 12 },
+  { id: 39, size: 2,   left: 50, delay: 13,   dur: 11 },
+  { id: 40, size: 1.5, left: 22, delay: 14,   dur: 13 },
+  { id: 41, size: 2.5, left: 44, delay: 15,   dur: 16 },
+  { id: 42, size: 1,   left: 66, delay: 12.5, dur: 9  },
+  { id: 43, size: 3,   left: 77, delay: 11,   dur: 17 },
+  { id: 44, size: 2,   left: 89, delay: 13.5, dur: 12 },
 ];
 
-// Single shared SVG defs — all SpadeIcon instances reference these IDs
 const SvgDefs = () => (
   <svg width="0" height="0" style={{ position: "absolute", overflow: "hidden" }}>
     <defs>
@@ -74,17 +103,13 @@ const SvgDefs = () => (
 
 const SpadeIcon = ({ size = 80, fill = false }) => (
   <svg width={size} height={size * 1.15} viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg">
-    {/* Spade outline */}
     <path
       d="M50 5 C60 12,92 28,92 52 C92 72,76 80,60 72 C64 83,70 88,78 93 L22 93 C30 88,36 83,40 72 C24 80,8 72,8 52 C8 28,40 12,50 5Z"
       stroke="url(#ap-gold)" strokeWidth="1.8"
       fill={fill ? "rgba(212,175,55,0.05)" : "none"}
       filter="url(#ap-glow)"
     />
-    {/* Stem base */}
     <rect x="43" y="93" width="14" height="5" rx="1" fill="url(#ap-gold)" opacity="0.45" />
-
-    {/* Molecular A — nodes */}
     <circle cx="50" cy="22" r="3"   fill="url(#ap-gold)" filter="url(#ap-glow)" />
     <circle cx="42" cy="38" r="1.8" fill="url(#ap-gold)" />
     <circle cx="58" cy="38" r="1.8" fill="url(#ap-gold)" />
@@ -94,8 +119,6 @@ const SpadeIcon = ({ size = 80, fill = false }) => (
     <circle cx="71" cy="72" r="2"   fill="url(#ap-gold)" />
     <circle cx="44" cy="54" r="1.3" fill="url(#ap-gold)" opacity="0.8" />
     <circle cx="56" cy="54" r="1.3" fill="url(#ap-gold)" opacity="0.8" />
-
-    {/* Molecular A — connecting lines */}
     <line x1="50" y1="22" x2="42" y2="38" stroke="url(#ap-gold)" strokeWidth="0.85" opacity="0.7" />
     <line x1="50" y1="22" x2="58" y2="38" stroke="url(#ap-gold)" strokeWidth="0.85" opacity="0.7" />
     <line x1="42" y1="38" x2="36" y2="52" stroke="url(#ap-gold)" strokeWidth="0.85" opacity="0.7" />
@@ -103,20 +126,152 @@ const SpadeIcon = ({ size = 80, fill = false }) => (
     <line x1="36" y1="52" x2="29" y2="72" stroke="url(#ap-gold)" strokeWidth="0.85" opacity="0.7" />
     <line x1="64" y1="52" x2="71" y2="72" stroke="url(#ap-gold)" strokeWidth="0.85" opacity="0.7" />
     <line x1="44" y1="54" x2="56" y2="54" stroke="url(#ap-gold)" strokeWidth="0.85" opacity="0.6" />
-
-    {/* Silver orbital streak */}
-    <ellipse
-      cx="50" cy="50" rx="56" ry="17"
-      stroke="url(#ap-silver)" strokeWidth="1.3" fill="none"
-      transform="rotate(-32, 50, 50)"
-      strokeDasharray="88 108"
-    />
-
-    {/* Star sparkle */}
+    <ellipse cx="50" cy="50" rx="56" ry="17" stroke="url(#ap-silver)" strokeWidth="1.3" fill="none"
+      transform="rotate(-32, 50, 50)" strokeDasharray="88 108" />
     <path d="M80 20 L81.4 24.1 L85.7 25 L81.4 25.9 L80 30 L78.6 25.9 L74.3 25 L78.6 24.1 Z"
           fill="#D0D0D0" opacity="0.88" />
   </svg>
 );
+
+// Playing-card spread component
+function CardSpread({ products, onAdd }) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(null);
+
+  const stack = [
+    { x: -22, y: 12, r: -11 },
+    { x:   2, y:  2, r:  -2 },
+    { x:  24, y:  8, r:   9 },
+  ];
+  const fan = [
+    { x: -256, y: 50, r: -22 },
+    { x:    0, y:  0, r:   0 },
+    { x:  256, y: 50, r:  22 },
+  ];
+
+  return (
+    <div
+      style={{ position: "relative", height: 430, display: "flex", alignItems: "center", justifyContent: "center", cursor: open ? "default" : "pointer" }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => { setOpen(false); setActive(null); }}
+    >
+      {/* Ambient glow behind cards */}
+      <div style={{
+        position: "absolute", width: 500, height: 300, borderRadius: "50%",
+        background: "radial-gradient(ellipse, rgba(212,175,55,0.06) 0%, transparent 70%)",
+        pointerEvents: "none",
+      }} />
+
+      {products.map((p, i) => {
+        const pos = open ? fan[i] : stack[i];
+        const isActive = active === i && open;
+        return (
+          <div
+            key={p.id}
+            style={{
+              position: "absolute",
+              width: 228,
+              height: 320,
+              transform: `translate(${pos.x}px, ${isActive ? pos.y - 32 : pos.y}px) rotate(${pos.r}deg) scale(${isActive ? 1.06 : 1})`,
+              transition: "transform 0.45s cubic-bezier(0.25,0.46,0.45,0.94), box-shadow 0.35s, border-color 0.35s",
+              zIndex: isActive ? 10 : i + 1,
+              background: "linear-gradient(160deg, #0E0E0E 0%, #080808 100%)",
+              border: `1.5px solid ${isActive ? "rgba(212,175,55,0.65)" : "rgba(212,175,55,0.22)"}`,
+              boxShadow: isActive
+                ? "0 28px 72px rgba(0,0,0,0.9), 0 0 32px rgba(212,175,55,0.2)"
+                : open
+                ? "0 14px 44px rgba(0,0,0,0.75)"
+                : "0 6px 28px rgba(0,0,0,0.65)",
+              cursor: open ? "pointer" : "default",
+              display: "flex",
+              flexDirection: "column",
+              padding: 18,
+              userSelect: "none",
+              overflow: "hidden",
+            }}
+            onMouseEnter={() => open && setActive(i)}
+            onMouseLeave={() => setActive(null)}
+            onClick={() => open && onAdd(p)}
+          >
+            {/* Inner inset border */}
+            <div style={{ position: "absolute", inset: 7, border: "1px solid rgba(212,175,55,0.09)", pointerEvents: "none" }} />
+
+            {/* Subtle corner gradient on active */}
+            {isActive && (
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(212,175,55,0.04) 0%, transparent 50%)", pointerEvents: "none" }} />
+            )}
+
+            {/* Top-left corner pip */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.1, zIndex: 1 }}>
+              <span style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: "#D4AF37", fontWeight: 600 }}>A</span>
+              <span style={{ color: "#D4AF37", fontSize: 14, marginTop: 1 }}>♠</span>
+            </div>
+
+            {/* Center content */}
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <SpadeIcon size={64} fill />
+              <div style={{ textAlign: "center", marginTop: 6 }}>
+                <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: "0.05em", color: "#F0EFE8", marginBottom: 10 }}>
+                  {p.name}
+                </div>
+                <div style={{
+                  fontFamily: "'Cinzel', serif", fontSize: 26,
+                  background: "linear-gradient(90deg, #9A7A1A, #F5D07A, #D4AF37, #F5D07A, #9A7A1A)",
+                  backgroundSize: "200% auto",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                  animation: "shimmer 5s linear infinite",
+                }}>
+                  ${p.price.toFixed(2)}
+                </div>
+                <div style={{ fontSize: 9, color: "#4A4A42", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 8, fontFamily: "'Montserrat', sans-serif" }}>
+                  {p.purity} purity
+                </div>
+                <div style={{ fontSize: 9, color: "#3A3A32", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 3, fontFamily: "'Montserrat', sans-serif" }}>
+                  {p.form}
+                </div>
+              </div>
+              <div style={{
+                marginTop: 8,
+                background: isActive ? "linear-gradient(135deg, #9A7A1A, #D4AF37, #F5D07A)" : "transparent",
+                border: isActive ? "none" : "1px solid rgba(212,175,55,0.25)",
+                color: isActive ? "#000" : "#5A5A52",
+                padding: "9px 22px",
+                fontSize: 9,
+                letterSpacing: ".14em",
+                textTransform: "uppercase",
+                fontWeight: 700,
+                fontFamily: "'Montserrat', sans-serif",
+                transition: "background 0.3s, color 0.3s, border 0.3s",
+              }}>
+                {isActive ? "Add to Cart" : "— view —"}
+              </div>
+            </div>
+
+            {/* Bottom-right corner pip (rotated 180°) */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1, transform: "rotate(180deg)", zIndex: 1 }}>
+              <span style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: "#D4AF37", fontWeight: 600 }}>A</span>
+              <span style={{ color: "#D4AF37", fontSize: 14, marginTop: 1 }}>♠</span>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Hover hint */}
+      <div style={{
+        position: "absolute", bottom: -40,
+        fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase",
+        fontFamily: "'Montserrat', sans-serif", fontWeight: 600,
+        color: open ? "rgba(212,175,55,0.5)" : "#2A2A22",
+        transition: "color 0.4s", textAlign: "center", width: "100%",
+        pointerEvents: "none",
+      }}>
+        {open ? "Hover a card · click to add" : "Hover to explore"}
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const [section, setSection] = useState("products");
@@ -233,9 +388,9 @@ export default function App() {
         }
         @keyframes particleRise {
           0%   { transform: translateY(0) translateX(0);    opacity: 0; }
-          8%   { opacity: 0.55; }
-          92%  { opacity: 0.25; }
-          100% { transform: translateY(-95vh) translateX(14px); opacity: 0; }
+          6%   { opacity: 0.8; }
+          88%  { opacity: 0.55; }
+          100% { transform: translateY(-95vh) translateX(12px); opacity: 0; }
         }
         @keyframes shineSwipe {
           from { left: -80%; }
@@ -268,23 +423,6 @@ export default function App() {
         }
         .nav-link:hover, .nav-link.active { color: #D4AF37; }
         .nav-link:hover::after, .nav-link.active::after { width: 100%; left: 0; }
-
-        .product-card {
-          background: #0D0D0D; border: 1px solid rgba(212,175,55,0.12);
-          position: relative; overflow: hidden;
-          transition: border-color .4s, box-shadow .4s, transform .35s;
-        }
-        .product-card::before {
-          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(212,175,55,0.5), transparent);
-          opacity: 0; transition: opacity .4s;
-        }
-        .product-card:hover::before { opacity: 1; }
-        .product-card:hover {
-          border-color: rgba(212,175,55,0.38);
-          box-shadow: 0 0 36px rgba(212,175,55,0.07), 0 20px 56px rgba(0,0,0,0.55);
-          transform: translateY(-6px);
-        }
 
         .btn-gold {
           background: linear-gradient(135deg, #9A7A1A 0%, #D4AF37 50%, #F5D07A 100%);
@@ -350,7 +488,7 @@ export default function App() {
 
         .particle {
           position: absolute; border-radius: 50%;
-          background: radial-gradient(circle, rgba(212,175,55,0.7), rgba(212,175,55,0));
+          background: radial-gradient(circle, rgba(212,175,55,0.95), rgba(212,175,55,0.15), rgba(212,175,55,0));
           pointer-events: none; animation: particleRise linear infinite;
         }
 
@@ -363,9 +501,15 @@ export default function App() {
           font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
           color: #D4AF37; font-weight: 600; margin-bottom: 10px;
         }
+
+        .spec-row {
+          flex: 1; background: #0D0D0D; border: 1px solid rgba(212,175,55,0.07);
+          padding: 20px 22px; transition: border-color .3s;
+        }
+        .spec-row:hover { border-color: rgba(212,175,55,0.2); }
       `}</style>
 
-      {/* Floating background particles */}
+      {/* Dense particle field */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
         {PARTICLES.map((p) => (
           <div
@@ -374,7 +518,7 @@ export default function App() {
             style={{
               width: p.size, height: p.size,
               left: `${p.left}%`, bottom: "-8px",
-              animationDuration: `${p.duration}s`,
+              animationDuration: `${p.dur}s`,
               animationDelay: `${p.delay}s`,
             }}
           />
@@ -393,9 +537,7 @@ export default function App() {
           style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
           onClick={() => setSection("products")}
         >
-          <div className="logo-glow">
-            <SpadeIcon size={34} />
-          </div>
+          <div className="logo-glow"><SpadeIcon size={34} /></div>
           <div style={{ lineHeight: 1 }}>
             <div style={{ fontFamily: "'Cinzel', serif", fontSize: 15, letterSpacing: "0.2em", color: "#F0EFE8" }}>ACE</div>
             <div style={{ fontSize: 8, letterSpacing: "0.28em", textTransform: "uppercase", color: "#4A4A42", marginTop: 3 }}>PEPTIDES</div>
@@ -427,13 +569,14 @@ export default function App() {
 
       <div className="divider-gold" />
 
-      <main style={{ maxWidth: 1020, margin: "0 auto", padding: "72px 32px 140px", position: "relative", zIndex: 1 }}>
+      <main style={{ maxWidth: 1060, margin: "0 auto", padding: "72px 32px 140px", position: "relative", zIndex: 1 }}>
 
         {/* ── Products ── */}
         {section === "products" && (
           <div className="fade-section">
+
             {/* Hero */}
-            <div style={{ textAlign: "center", marginBottom: 88 }}>
+            <div style={{ textAlign: "center", marginBottom: 96 }}>
               <div className="logo-float logo-glow" style={{ display: "inline-block", marginBottom: 28 }}>
                 <SpadeIcon size={110} fill />
               </div>
@@ -443,47 +586,54 @@ export default function App() {
               <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: "0.36em", color: "#3A3A32", marginTop: 6, marginBottom: 22 }}>
                 PEPTIDES
               </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, color: "#3A3A32", fontSize: 9, letterSpacing: "0.22em", textTransform: "uppercase" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, color: "#3A3A32", fontSize: 9, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: 18 }}>
                 <span>Precision</span>
                 <span style={{ color: "#D4AF37", fontSize: 12 }}>·</span>
                 <span>Performance</span>
                 <span style={{ color: "#D4AF37", fontSize: 12 }}>·</span>
                 <span>Superiority</span>
               </div>
+              <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.18), transparent)", maxWidth: 320, margin: "0 auto" }} />
             </div>
 
-            <div style={{ marginBottom: 28 }}>
-              <div className="section-eyebrow">Research Compounds</div>
-              <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 22, fontWeight: 400, letterSpacing: "0.06em", marginBottom: 10 }}>
+            {/* Section header */}
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <div className="section-eyebrow" style={{ justifyContent: "center", display: "flex" }}>Research Compounds</div>
+              <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 26, fontWeight: 400, letterSpacing: "0.08em", marginBottom: 10 }}>
                 Retatrutide
               </h2>
-              <p style={{ fontSize: 12, color: "#4A4A42", lineHeight: 1.75, letterSpacing: "0.02em" }}>
-                HPLC-verified ≥99% purity. For in-vitro and laboratory research only.
+              <p style={{ fontSize: 12, color: "#4A4A42", lineHeight: 1.75, maxWidth: 440, margin: "0 auto" }}>
+                HPLC-verified ≥99% purity · Lyophilized Powder · For in-vitro and laboratory research only
               </p>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 16 }}>
+            {/* Card spread — main product interaction */}
+            <CardSpread products={products} onAdd={addToCart} />
+
+            {/* Spacer for hint text */}
+            <div style={{ height: 68 }} />
+
+            {/* Quick-spec strip */}
+            <div style={{ display: "flex", gap: 2, marginBottom: 56 }}>
               {products.map((p) => (
-                <div key={p.id} className="product-card" style={{ padding: 32, display: "flex", flexDirection: "column", gap: 20 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div>
-                      <div style={{ fontFamily: "'Cinzel', serif", fontSize: 16, fontWeight: 400, letterSpacing: "0.06em", marginBottom: 7 }}>
-                        {p.name}
-                      </div>
-                      <div style={{ fontSize: 10, color: "#3A3A32", letterSpacing: "0.08em" }}>CAS {p.cas}</div>
-                    </div>
-                    <span className="tag-gold">{p.purity}</span>
-                  </div>
-                  <div style={{ fontSize: 10, color: "#4A4A42", letterSpacing: "0.1em", textTransform: "uppercase" }}>{p.form}</div>
-                  <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span className="gold-text" style={{ fontSize: 28, fontFamily: "'Cinzel', serif" }}>${p.price.toFixed(2)}</span>
-                    <button className="btn-gold" onClick={() => addToCart(p)}>Add to Cart</button>
+                <div key={p.id} className="spec-row">
+                  <div style={{ fontFamily: "'Cinzel', serif", fontSize: 14, letterSpacing: "0.04em", marginBottom: 10, color: "#F0EFE8" }}>{p.name}</div>
+                  <div style={{ fontSize: 9, color: "#4A4A42", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>CAS {p.cas}</div>
+                  <div style={{ fontSize: 9, color: "#4A4A42", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{p.form}</div>
+                  <div style={{
+                    fontSize: 18, fontFamily: "'Cinzel', serif",
+                    background: "linear-gradient(90deg, #9A7A1A, #F5D07A, #D4AF37, #F5D07A, #9A7A1A)",
+                    backgroundSize: "200% auto",
+                    WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                    backgroundClip: "text", animation: "shimmer 5s linear infinite",
+                  }}>
+                    ${p.price.toFixed(2)}
                   </div>
                 </div>
               ))}
             </div>
 
-            <div style={{ marginTop: 56, padding: "18px 28px", border: "1px solid rgba(212,175,55,0.07)", fontSize: 11, color: "#3A3A32", lineHeight: 1.8, textAlign: "center", letterSpacing: "0.02em" }}>
+            <div style={{ padding: "18px 28px", border: "1px solid rgba(212,175,55,0.07)", fontSize: 11, color: "#3A3A32", lineHeight: 1.8, textAlign: "center", letterSpacing: "0.02em" }}>
               <strong style={{ color: "#5A5A52" }}>Disclaimer:</strong> This product is intended strictly for laboratory research purposes only. Not for human or animal consumption. Not for use in diagnostic or therapeutic applications.
             </div>
           </div>
@@ -493,9 +643,7 @@ export default function App() {
         {section === "research" && (
           <div className="fade-section">
             <div className="section-eyebrow">Science</div>
-            <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 28 }}>
-              Retatrutide Overview
-            </h2>
+            <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 28 }}>Retatrutide Overview</h2>
             <p style={{ fontSize: 13, color: "#5A5A52", marginBottom: 18, lineHeight: 1.88, maxWidth: 580 }}>
               Retatrutide (LY3437943) is a synthetic peptide studied in metabolic and endocrine research. It functions as a triple receptor agonist, interacting with GLP-1, GIP, and glucagon receptors involved in energy balance and glucose regulation.
             </p>
@@ -521,17 +669,13 @@ export default function App() {
         {section === "faq" && (
           <div className="fade-section">
             <div className="section-eyebrow">Support</div>
-            <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 52 }}>
-              Frequently Asked
-            </h2>
+            <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 52 }}>Frequently Asked</h2>
             <div>
               {faqs.map((f, i) => (
                 <div key={i} className="faq-item">
                   <div className="faq-q" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
                     <span>{f.q}</span>
-                    <span style={{ fontSize: 20, color: "#D4AF37", display: "inline-block", marginLeft: 20, flexShrink: 0, transform: openFaq === i ? "rotate(45deg)" : "none", transition: "transform .25s" }}>
-                      +
-                    </span>
+                    <span style={{ fontSize: 20, color: "#D4AF37", display: "inline-block", marginLeft: 20, flexShrink: 0, transform: openFaq === i ? "rotate(45deg)" : "none", transition: "transform .25s" }}>+</span>
                   </div>
                   {openFaq === i && <div className="faq-a">{f.a}</div>}
                 </div>
@@ -544,9 +688,7 @@ export default function App() {
         {section === "cart" && (
           <div className="fade-section">
             <div className="section-eyebrow">Order</div>
-            <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 52 }}>
-              Your Cart
-            </h2>
+            <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 52 }}>Your Cart</h2>
 
             {cart.length === 0 ? (
               <div style={{ textAlign: "center", padding: "80px 0" }}>
@@ -559,9 +701,7 @@ export default function App() {
                 {cart.map((item) => (
                   <div key={item.id} className="cart-item-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "24px 0" }}>
                     <div>
-                      <div style={{ fontFamily: "'Cinzel', serif", fontSize: 15, fontWeight: 400, letterSpacing: "0.04em", marginBottom: 12 }}>
-                        {item.name}
-                      </div>
+                      <div style={{ fontFamily: "'Cinzel', serif", fontSize: 15, fontWeight: 400, letterSpacing: "0.04em", marginBottom: 12 }}>{item.name}</div>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <button onClick={() => updateQty(item.id, -1)} style={{ border: "1px solid rgba(212,175,55,0.25)", background: "none", width: 26, height: 26, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", color: "#D4AF37" }}>−</button>
                         <span style={{ fontSize: 13, color: "#6A6A60", minWidth: 16, textAlign: "center" }}>{item.qty}</span>
@@ -569,7 +709,7 @@ export default function App() {
                         <button onClick={() => removeFromCart(item.id)} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 9, color: "#804040", letterSpacing: ".12em", textTransform: "uppercase", fontFamily: "'Montserrat', sans-serif", fontWeight: 600, padding: "0 4px" }}>Remove</button>
                       </div>
                     </div>
-                    <span className="gold-text" style={{ fontFamily: "'Cinzel', serif", fontSize: 20 }}>
+                    <span style={{ fontFamily: "'Cinzel', serif", fontSize: 20, background: "linear-gradient(90deg,#9A7A1A,#F5D07A,#D4AF37,#F5D07A,#9A7A1A)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", animation: "shimmer 5s linear infinite" }}>
                       ${(item.price * item.qty).toFixed(2)}
                     </span>
                   </div>
@@ -577,7 +717,9 @@ export default function App() {
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "28px 0", borderTop: "1px solid rgba(212,175,55,0.15)" }}>
                   <span style={{ fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#6A6A60" }}>Total</span>
-                  <span className="gold-text" style={{ fontFamily: "'Cinzel', serif", fontSize: 28 }}>${cartTotal.toFixed(2)}</span>
+                  <span style={{ fontFamily: "'Cinzel', serif", fontSize: 28, background: "linear-gradient(90deg,#9A7A1A,#F5D07A,#D4AF37,#F5D07A,#9A7A1A)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", animation: "shimmer 5s linear infinite" }}>
+                    ${cartTotal.toFixed(2)}
+                  </span>
                 </div>
 
                 <div className="wallet-box">
