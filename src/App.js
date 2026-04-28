@@ -76,6 +76,21 @@ const PARTICLES = [
   { id: 44, size: 2,   left: 89, delay: 13.5, dur: 12 },
 ];
 
+// matchMedia hook for layouts that can't be expressed in pure CSS — used
+// to swap the playing-card fan for a stacked list on narrow viewports.
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia(query).matches
+  );
+  useEffect(() => {
+    const m = window.matchMedia(query);
+    const h = (e) => setMatches(e.matches);
+    m.addEventListener("change", h);
+    return () => m.removeEventListener("change", h);
+  }, [query]);
+  return matches;
+}
+
 // Canvas-based background removal: draws the image then zeros out near-black
 // pixels, giving a truly transparent background regardless of CSS stacking contexts.
 const AceLogo = ({ size = 80, className = "" }) => {
@@ -122,6 +137,7 @@ const AceLogo = ({ size = 80, className = "" }) => {
 function CardSpread({ products, onAdd }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(null);
+  const isMobile = useMediaQuery("(max-width: 720px)");
 
   const stack = [
     { x: -22, y: 12, r: -11 },
@@ -133,6 +149,60 @@ function CardSpread({ products, onAdd }) {
     { x:    0, y:  0, r:   0 },
     { x:  256, y: 50, r:  22 },
   ];
+
+  // Mobile: stacked vertical list — the desktop fan needs ~700px width.
+  if (isMobile) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {products.map((p) => (
+          <div
+            key={p.id}
+            style={{
+              position: "relative",
+              background: "linear-gradient(160deg, #0E0E0E 0%, #080808 100%)",
+              border: "1.5px solid rgba(212,175,55,0.22)",
+              boxShadow: "0 6px 28px rgba(0,0,0,0.65)",
+              padding: 22, paddingTop: 18,
+              display: "flex", flexDirection: "column", gap: 14,
+            }}
+          >
+            <div style={{ position: "absolute", inset: 7, border: "1px solid rgba(212,175,55,0.09)", pointerEvents: "none" }} />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 1 }}>
+              <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
+                <span style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: "#D4AF37", fontWeight: 600 }}>A</span>
+                <span style={{ color: "#D4AF37", fontSize: 14, marginTop: 1 }}>♠</span>
+              </div>
+              <AceLogo size={48} />
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1, transform: "rotate(180deg)" }}>
+                <span style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: "#D4AF37", fontWeight: 600 }}>A</span>
+                <span style={{ color: "#D4AF37", fontSize: 14, marginTop: 1 }}>♠</span>
+              </div>
+            </div>
+
+            <div style={{ textAlign: "center", zIndex: 1 }}>
+              <div style={{ fontFamily: "'Cinzel', serif", fontSize: 16, letterSpacing: "0.05em", color: "#F0EFE8", marginBottom: 8 }}>
+                {p.name}
+              </div>
+              <div className="gold-text" style={{ fontFamily: "'Cinzel', serif", fontSize: 26 }}>
+                ${p.price.toFixed(2)}
+              </div>
+              <div style={{ fontSize: 9, color: "#4A4A42", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 8, fontFamily: "'Montserrat', sans-serif" }}>
+                {p.purity} purity
+              </div>
+              <div style={{ fontSize: 9, color: "#3A3A32", letterSpacing: "0.10em", textTransform: "uppercase", marginTop: 3, fontFamily: "'Montserrat', sans-serif" }}>
+                {p.form}
+              </div>
+            </div>
+
+            <button className="btn-gold" style={{ marginTop: 4, zIndex: 1 }} onClick={() => onAdd(p)}>
+              Add to Cart
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -258,6 +328,82 @@ function CardSpread({ products, onAdd }) {
   );
 }
 
+// SVG vial — 80×220 viewBox, animated liquid + dose mark
+function VialVisualizer({ diluentMl, volumePerDose, doseMg }) {
+  const VIAL_MAX = 5; // mL display cap
+  const fillPct = Math.max(0, Math.min(1, diluentMl / VIAL_MAX));
+  const doseFracOfFluid = diluentMl > 0 ? Math.max(0, Math.min(1, volumePerDose / diluentMl)) : 0;
+  const glassTop = 30, glassBottom = 210;
+  const glassH = glassBottom - glassTop;
+  const liquidH = fillPct * glassH;
+  const liquidY = glassBottom - liquidH;
+  const doseY  = glassBottom - doseFracOfFluid * liquidH;
+  const showDose = diluentMl > 0 && volumePerDose > 0;
+
+  return (
+    <div className="vial-result" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 28, marginTop: 56 }}>
+      <svg width="80" height="220" viewBox="0 0 80 220" style={{ overflow: "visible" }}>
+        <defs>
+          <linearGradient id="vial-liquid" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(245,208,122,0.18)" />
+            <stop offset="100%" stopColor="rgba(212,175,55,0.42)" />
+          </linearGradient>
+          <clipPath id="vial-clip">
+            <rect x="14" y={glassTop - 2} width="52" height={glassH + 4} />
+          </clipPath>
+        </defs>
+        {/* Cap */}
+        <rect x="24" y="2" width="32" height="18" fill="#2A2A22" />
+        <rect x="20" y="18" width="40" height="10" fill="#1A1A14" />
+        {/* Glass body outline */}
+        <rect x="14" y={glassTop - 2} width="52" height={glassH + 4} fill="rgba(212,175,55,0.02)" stroke="rgba(212,175,55,0.4)" strokeWidth="1" />
+        {/* Liquid */}
+        <rect
+          x="15" y={liquidY} width="50" height={liquidH}
+          fill="url(#vial-liquid)" clipPath="url(#vial-clip)"
+          style={{ transition: "y 0.6s ease, height 0.6s ease" }}
+        />
+        {/* Highlight stripe inside glass */}
+        <line x1="20" y1={glassTop + 2} x2="20" y2={glassBottom - 6} stroke="rgba(255,255,255,0.06)" strokeWidth="2" />
+        {/* Dose mark */}
+        {showDose && (
+          <g style={{ transition: "transform 0.6s ease" }}>
+            <line x1="6" y1={doseY} x2="74" y2={doseY} stroke="#F5D07A" strokeWidth="1" strokeDasharray="3 3" />
+            <circle cx="14" cy={doseY} r="2" fill="#F5D07A" />
+            <circle cx="66" cy={doseY} r="2" fill="#F5D07A" />
+          </g>
+        )}
+      </svg>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 160 }}>
+        {showDose ? (
+          <>
+            <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: "0.2em", textTransform: "uppercase", fontWeight: 600 }}>
+              ◈ {doseMg}mg dose
+            </div>
+            <div style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: "#F0EFE8" }}>
+              {volumePerDose.toFixed(3)} mL
+            </div>
+            <div style={{ fontSize: 10, color: "#5A5A52", letterSpacing: "0.06em", lineHeight: 1.6 }}>
+              {(volumePerDose * 100).toFixed(0)} units on U-100<br />
+              {(diluentMl / volumePerDose).toFixed(1)} doses per vial
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: 10, color: "#3A3A32", letterSpacing: "0.18em", textTransform: "uppercase" }}>
+            Enter values to visualize
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const SUB_TIERS = [
+  { key: "quarterly", name: "Quarterly", cadence: "Every 3 months",  discount: 0.05, popular: false },
+  { key: "bimonthly", name: "Bi-monthly", cadence: "Every 2 months", discount: 0.10, popular: true  },
+  { key: "monthly",   name: "Monthly",    cadence: "Every month",    discount: 0.15, popular: false },
+];
+
 export default function App() {
   const [section, setSection] = useState("products");
   const [cart, setCart] = useState([]);
@@ -267,6 +413,26 @@ export default function App() {
   const [walletError, setWalletError] = useState(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const activeProvider = useRef(null);
+
+  // Calculator
+  const [vialMg, setVialMg] = useState(10);
+  const [diluentMl, setDiluentMl] = useState(2);
+  const [doseMg, setDoseMg] = useState(4);
+  const [syringeMl, setSyringeMl] = useState(1);
+
+  // Subscribe
+  const [selectedTier, setSelectedTier] = useState(null);
+  const [subProductId, setSubProductId] = useState(products[1].id);
+  const [subQty, setSubQty] = useState(1);
+  const [subStartDate, setSubStartDate] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  });
+
+  const subProduct = products.find((p) => p.id === subProductId) ?? products[1];
+  const tierDiscount = SUB_TIERS.find((t) => t.key === selectedTier)?.discount ?? 0;
+  const subOriginal = subProduct.price * subQty;
+  const subTotal = subOriginal * (1 - tierDiscount);
 
   const addToCart = (p) => {
     setCart((prev) => {
@@ -287,6 +453,34 @@ export default function App() {
 
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
   const cartTotal  = cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+  const startSubscription = () => {
+    if (!selectedTier) return;
+    const tier = SUB_TIERS.find((t) => t.key === selectedTier);
+    const subId = `sub-${selectedTier}-${subProduct.id}`;
+    const discountedPrice = +(subProduct.price * (1 - tier.discount)).toFixed(2);
+    setCart((prev) => {
+      const existing = prev.find((i) => i.id === subId);
+      if (existing) return prev.map((i) => i.id === subId ? { ...i, qty: i.qty + subQty } : i);
+      return [...prev, {
+        ...subProduct,
+        id: subId,
+        name: `${subProduct.name} — ${tier.name} Subscription`,
+        price: discountedPrice,
+        qty: subQty,
+        isSubscription: true,
+      }];
+    });
+    setSection("cart");
+  };
+
+  // Calculator-derived values
+  const concentration  = vialMg > 0 && diluentMl > 0 ? vialMg / diluentMl : 0;
+  const volumePerDose  = concentration > 0 ? doseMg / concentration : 0;
+  const unitsOnSyringe = volumePerDose * 100;
+  const dosesPerVial   = doseMg > 0 ? vialMg / doseMg : 0;
+  const exceedsSyringe = volumePerDose > syringeMl;
+  const calcReady      = vialMg > 0 && diluentMl > 0 && doseMg > 0;
 
   const connectWallet = async (provider) => {
     setWalletError(null);
@@ -489,6 +683,201 @@ export default function App() {
           padding: 20px 22px; transition: border-color .3s;
         }
         .spec-row:hover { border-color: rgba(212,175,55,0.2); }
+
+        .calc-label {
+          display: block; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+          color: #D4AF37; font-weight: 600; margin-bottom: 8px;
+          font-family: 'Montserrat', sans-serif;
+        }
+        .calc-input {
+          width: 100%; background: transparent; border: none;
+          border-bottom: 1px solid rgba(212,175,55,0.22);
+          color: #F0EFE8; padding: 10px 0;
+          font-family: 'Cinzel', serif; font-size: 18px;
+          outline: none; transition: border-color 0.3s;
+          -moz-appearance: textfield;
+        }
+        .calc-input::-webkit-outer-spin-button,
+        .calc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .calc-input:focus { border-bottom-color: rgba(212,175,55,0.65); }
+        .calc-helper {
+          font-size: 10px; color: #4A4A42; margin-top: 6px;
+          line-height: 1.6; font-family: 'Montserrat', sans-serif;
+        }
+
+        .seg-group { display: flex; }
+        .seg-btn {
+          flex: 1; padding: 11px 14px; background: transparent;
+          color: #5A5A52; border: 1px solid rgba(212,175,55,0.22);
+          font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+          font-family: 'Montserrat', sans-serif; font-weight: 600;
+          cursor: pointer; transition: background .3s, color .3s, border-color .3s;
+        }
+        .seg-btn + .seg-btn { border-left: none; }
+        .seg-btn:hover { color: #D4AF37; }
+        .seg-btn.active {
+          background: linear-gradient(135deg, #9A7A1A 0%, #D4AF37 50%, #F5D07A 100%);
+          color: #000; border-color: #D4AF37;
+        }
+
+        .result-panel {
+          background: #0D0D0D; border: 1px solid rgba(212,175,55,0.18);
+          padding: 32px; display: flex; gap: 0; margin-top: 48px;
+        }
+        .result-cell {
+          flex: 1; padding: 0 24px; border-right: 1px solid rgba(212,175,55,0.10);
+        }
+        .result-cell:first-child { padding-left: 0; }
+        .result-cell:last-child  { padding-right: 0; border-right: none; }
+
+        .tier-card {
+          position: relative; height: 360px; padding: 24px;
+          background: linear-gradient(160deg, #0E0E0E 0%, #080808 100%);
+          border: 1px solid rgba(212,175,55,0.22);
+          cursor: pointer;
+          transition: border-color .35s, box-shadow .35s, transform .35s;
+          display: flex; flex-direction: column;
+        }
+        .tier-card:hover { border-color: rgba(212,175,55,0.45); }
+        .tier-card.active {
+          border-color: rgba(212,175,55,0.65);
+          box-shadow: 0 14px 44px rgba(0,0,0,0.75), 0 0 32px rgba(212,175,55,0.18);
+        }
+
+        .sub-row {
+          display: flex; justify-content: space-between; align-items: center;
+          padding: 20px 0; border-bottom: 1px solid rgba(212,175,55,0.10);
+          gap: 20px;
+        }
+
+        .sub-select {
+          background: transparent; border: none;
+          border-bottom: 1px solid rgba(212,175,55,0.22);
+          color: #F0EFE8; padding: 8px 0; min-width: 220px;
+          font-family: 'Cinzel', serif; font-size: 14px;
+          outline: none; cursor: pointer; transition: border-color .3s;
+        }
+        .sub-select:focus { border-bottom-color: rgba(212,175,55,0.65); }
+        .sub-select option { background: #0D0D0D; color: #F0EFE8; font-family: 'Montserrat', sans-serif; }
+
+        .sub-date {
+          background: transparent; border: none;
+          border-bottom: 1px solid rgba(212,175,55,0.22);
+          color: #F0EFE8; padding: 8px 0;
+          font-family: 'Cinzel', serif; font-size: 14px;
+          outline: none; transition: border-color .3s;
+          color-scheme: dark;
+        }
+        .sub-date:focus { border-bottom-color: rgba(212,175,55,0.65); }
+
+        .qty-btn {
+          border: 1px solid rgba(212,175,55,0.25); background: none;
+          width: 26px; height: 26px; cursor: pointer; font-size: 14px;
+          display: flex; align-items: center; justify-content: center; color: #D4AF37;
+          transition: background .2s, color .2s;
+        }
+        .qty-btn:hover { background: rgba(212,175,55,0.08); }
+
+        /* ─────────── Reduced motion ─────────── */
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            animation-duration: 0.001ms !important;
+            animation-iteration-count: 1 !important;
+            animation-delay: 0ms !important;
+            transition-duration: 0.001ms !important;
+            scroll-behavior: auto !important;
+          }
+          .particle { display: none !important; }
+        }
+
+        /* ─────────── Tablet ≤ 900px ─────────── */
+        @media (max-width: 900px) {
+          .header-bar { padding: 14px 22px !important; }
+          .header-nav { gap: 22px !important; }
+          .main-shell { padding: 56px 22px 100px !important; }
+          .footer-bar { padding: 22px 22px !important; }
+        }
+
+        /* ─────────── Mobile ≤ 720px ─────────── */
+        @media (max-width: 720px) {
+          .header-bar {
+            padding: 12px 16px !important;
+            flex-wrap: wrap; gap: 10px;
+          }
+          .header-nav {
+            gap: 14px !important;
+            order: 3; width: 100%;
+            justify-content: flex-start; flex-wrap: wrap;
+            padding-top: 6px; row-gap: 10px;
+          }
+          .nav-link { font-size: 9px !important; letter-spacing: 0.16em !important; padding-bottom: 4px !important; }
+          .main-shell { padding: 40px 18px 80px !important; }
+          .hero-block { margin-bottom: 64px !important; }
+          .hero-wordmark { font-size: 38px !important; letter-spacing: 0.18em !important; }
+          .hero-sub { font-size: 11px !important; letter-spacing: 0.30em !important; }
+          .hero-tagline { gap: 10px !important; font-size: 8px !important; }
+          .section-h2 { font-size: 26px !important; margin-bottom: 32px !important; }
+          .section-h2-tight { font-size: 24px !important; }
+          .section-h2-sub { font-size: 22px !important; }
+          .lead-copy { font-size: 13px !important; line-height: 1.8 !important; }
+
+          .responsive-grid-2 { grid-template-columns: 1fr !important; gap: 22px !important; }
+          .responsive-grid-3 { grid-template-columns: 1fr !important; gap: 8px !important; }
+
+          .responsive-result-panel {
+            flex-direction: column !important; padding: 22px !important; gap: 0;
+          }
+          .responsive-result-panel .result-cell {
+            padding: 18px 0 !important; border-right: none !important;
+            border-bottom: 1px solid rgba(212,175,55,0.10);
+          }
+          .responsive-result-panel .result-cell:first-child { padding-top: 0 !important; }
+          .responsive-result-panel .result-cell:last-child {
+            padding-bottom: 0 !important; border-bottom: none;
+          }
+
+          .seg-group { flex-wrap: wrap; }
+          .seg-btn {
+            padding: 9px 8px !important; font-size: 9px !important;
+            letter-spacing: 0.10em !important; flex: 1 0 33%;
+          }
+
+          .spec-strip { flex-direction: column !important; gap: 6px !important; }
+          .spec-row { padding: 16px 18px !important; }
+
+          .tier-card { height: auto !important; min-height: 280px; padding: 22px !important; }
+
+          .sub-row {
+            flex-direction: column !important; align-items: flex-start !important;
+            gap: 10px; padding: 16px 0 !important;
+          }
+          .sub-row > *:last-child { width: 100%; }
+          .sub-select, .sub-date { min-width: 0 !important; width: 100%; }
+
+          .config-summary {
+            flex-direction: column !important;
+            align-items: stretch !important; gap: 22px !important;
+          }
+          .config-summary .btn-gold { width: 100%; }
+
+          .cart-row {
+            flex-direction: column !important; align-items: flex-start !important;
+            gap: 14px;
+          }
+          .cart-row > *:last-child { align-self: flex-end; }
+
+          .vial-result {
+            flex-direction: column !important; gap: 18px !important;
+            margin-top: 40px !important;
+          }
+
+          .footer-bar {
+            padding: 20px 18px !important;
+            flex-direction: column !important; gap: 8px; text-align: center;
+          }
+
+          .empty-cart { padding: 56px 12px !important; }
+        }
       `}</style>
 
       {/* Dense particle field */}
@@ -508,7 +897,7 @@ export default function App() {
       </div>
 
       {/* Header */}
-      <header style={{
+      <header className="header-bar" style={{
         padding: "18px 56px", display: "flex", justifyContent: "space-between", alignItems: "center",
         position: "sticky", top: 0, zIndex: 100,
         background: "rgba(8,8,8,0.94)", backdropFilter: "blur(14px)",
@@ -526,8 +915,8 @@ export default function App() {
           </div>
         </div>
 
-        <nav style={{ display: "flex", gap: 36, alignItems: "center" }}>
-          {[["products", "Products"], ["research", "Research"], ["faq", "FAQ"]].map(([key, label]) => (
+        <nav className="header-nav" style={{ display: "flex", gap: 36, alignItems: "center" }}>
+          {[["products", "Products"], ["research", "Research"], ["calculator", "Calculator"], ["faq", "FAQ"], ["subscribe", "Subscribe"]].map(([key, label]) => (
             <button key={key} className={`nav-link ${section === key ? "active" : ""}`} onClick={() => setSection(key)}>
               {label}
             </button>
@@ -551,24 +940,24 @@ export default function App() {
 
       <div className="divider-gold" />
 
-      <main style={{ maxWidth: 1060, margin: "0 auto", padding: "72px 32px 140px", position: "relative", zIndex: 1 }}>
+      <main className="main-shell" style={{ maxWidth: 1060, margin: "0 auto", padding: "72px 32px 140px", position: "relative", zIndex: 1 }}>
 
         {/* ── Products ── */}
         {section === "products" && (
           <div className="fade-section">
 
             {/* Hero */}
-            <div style={{ textAlign: "center", marginBottom: 96 }}>
+            <div className="hero-block" style={{ textAlign: "center", marginBottom: 96 }}>
               <div className="logo-float" style={{ display: "inline-block", marginBottom: 28 }}>
                 <AceLogo size={110} className="logo-glow" />
               </div>
-              <div style={{ fontFamily: "'Cinzel', serif", fontSize: 54, fontWeight: 400, letterSpacing: "0.22em", lineHeight: 1 }}>
+              <div className="hero-wordmark" style={{ fontFamily: "'Cinzel', serif", fontSize: 54, fontWeight: 400, letterSpacing: "0.22em", lineHeight: 1 }}>
                 <span className="gold-text">ACE</span>
               </div>
-              <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: "0.36em", color: "#3A3A32", marginTop: 6, marginBottom: 22 }}>
+              <div className="hero-sub" style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: "0.36em", color: "#3A3A32", marginTop: 6, marginBottom: 22 }}>
                 PEPTIDES
               </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, color: "#3A3A32", fontSize: 9, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: 18 }}>
+              <div className="hero-tagline" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, color: "#3A3A32", fontSize: 9, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: 18 }}>
                 <span>Precision</span>
                 <span style={{ color: "#D4AF37", fontSize: 12 }}>·</span>
                 <span>Performance</span>
@@ -581,7 +970,7 @@ export default function App() {
             {/* Section header */}
             <div style={{ textAlign: "center", marginBottom: 16 }}>
               <div className="section-eyebrow" style={{ justifyContent: "center", display: "flex" }}>Research Compounds</div>
-              <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 26, fontWeight: 400, letterSpacing: "0.08em", marginBottom: 10 }}>
+              <h2 className="section-h2-sub" style={{ fontFamily: "'Cinzel', serif", fontSize: 26, fontWeight: 400, letterSpacing: "0.08em", marginBottom: 10 }}>
                 Retatrutide
               </h2>
               <p style={{ fontSize: 12, color: "#4A4A42", lineHeight: 1.75, maxWidth: 440, margin: "0 auto" }}>
@@ -596,7 +985,7 @@ export default function App() {
             <div style={{ height: 68 }} />
 
             {/* Quick-spec strip */}
-            <div style={{ display: "flex", gap: 2, marginBottom: 56 }}>
+            <div className="spec-strip" style={{ display: "flex", gap: 2, marginBottom: 56 }}>
               {products.map((p) => (
                 <div key={p.id} className="spec-row">
                   <div style={{ fontFamily: "'Cinzel', serif", fontSize: 14, letterSpacing: "0.04em", marginBottom: 10, color: "#F0EFE8" }}>{p.name}</div>
@@ -625,11 +1014,11 @@ export default function App() {
         {section === "research" && (
           <div className="fade-section">
             <div className="section-eyebrow">Science</div>
-            <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 28 }}>Retatrutide Overview</h2>
-            <p style={{ fontSize: 13, color: "#5A5A52", marginBottom: 18, lineHeight: 1.88, maxWidth: 580 }}>
+            <h2 className="section-h2" style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 28 }}>Retatrutide Overview</h2>
+            <p className="lead-copy" style={{ fontSize: 13, color: "#5A5A52", marginBottom: 18, lineHeight: 1.88, maxWidth: 580 }}>
               Retatrutide (LY3437943) is a synthetic peptide studied in metabolic and endocrine research. It functions as a triple receptor agonist, interacting with GLP-1, GIP, and glucagon receptors involved in energy balance and glucose regulation.
             </p>
-            <p style={{ fontSize: 13, color: "#5A5A52", marginBottom: 64, lineHeight: 1.88, maxWidth: 580 }}>
+            <p className="lead-copy" style={{ fontSize: 13, color: "#5A5A52", marginBottom: 64, lineHeight: 1.88, maxWidth: 580 }}>
               In controlled research settings, activation of these pathways has been associated with effects on appetite signaling, metabolic activity, and glucose-related markers. Retatrutide continues to be studied for its role in metabolic research.
             </p>
             <div className="section-eyebrow">Published Findings</div>
@@ -647,11 +1036,134 @@ export default function App() {
           </div>
         )}
 
+        {/* ── Calculator ── */}
+        {section === "calculator" && (
+          <div className="fade-section" style={{ maxWidth: 720, margin: "0 auto" }}>
+            <div className="section-eyebrow">Tools</div>
+            <h2 className="section-h2" style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 18 }}>
+              Reconstitution Calculator
+            </h2>
+            <p className="lead-copy" style={{ fontSize: 12, color: "#5A5A52", lineHeight: 1.75, maxWidth: 520, marginBottom: 56 }}>
+              Calculate units on a U-100 insulin syringe for a target research dose. For laboratory research only — not for human use.
+            </p>
+
+            <div className="responsive-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
+              <div>
+                <label className="calc-label">Vial size (mg)</label>
+                <input
+                  className="calc-input" type="number" min="0" step="0.5"
+                  value={vialMg}
+                  onChange={(e) => setVialMg(parseFloat(e.target.value) || 0)}
+                />
+                <div className="calc-helper">Total peptide in vial (lyophilized).</div>
+              </div>
+
+              <div>
+                <label className="calc-label">Diluent volume (mL)</label>
+                <input
+                  className="calc-input" type="number" min="0" step="0.1"
+                  value={diluentMl}
+                  onChange={(e) => setDiluentMl(parseFloat(e.target.value) || 0)}
+                />
+                <div className="calc-helper">Bacteriostatic water added.</div>
+              </div>
+
+              <div>
+                <label className="calc-label">Target dose (mg)</label>
+                <input
+                  className="calc-input" type="number" min="0" step="0.1"
+                  value={doseMg}
+                  onChange={(e) => setDoseMg(parseFloat(e.target.value) || 0)}
+                />
+                <div className="calc-helper">Dose per administration.</div>
+              </div>
+
+              <div>
+                <label className="calc-label">Syringe type</label>
+                <div className="seg-group" style={{ marginTop: 4 }}>
+                  {[[1, "U-100 (1mL)"], [0.5, "U-100 (0.5mL)"], [0.3, "U-100 (0.3mL)"]].map(([v, l]) => (
+                    <button
+                      key={v} type="button"
+                      className={`seg-btn ${syringeMl === v ? "active" : ""}`}
+                      onClick={() => setSyringeMl(v)}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+                <div className="calc-helper">Insulin syringe capacity.</div>
+              </div>
+            </div>
+
+            {/* Result panel */}
+            <div className="result-panel responsive-result-panel">
+              <div className="result-cell">
+                <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 600, marginBottom: 8 }}>
+                  Concentration
+                </div>
+                <div className={calcReady ? "gold-text" : ""} style={{
+                  fontFamily: "'Cinzel', serif", fontSize: 24,
+                  color: calcReady ? undefined : "#3A3A32",
+                }}>
+                  {calcReady ? `${concentration.toFixed(2)} mg/mL` : "—"}
+                </div>
+              </div>
+              <div className="result-cell">
+                <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 600, marginBottom: 8 }}>
+                  Volume per dose
+                </div>
+                <div className={calcReady ? "gold-text" : ""} style={{
+                  fontFamily: "'Cinzel', serif", fontSize: 24,
+                  color: calcReady ? undefined : "#3A3A32",
+                }}>
+                  {calcReady ? `${volumePerDose.toFixed(3)} mL` : "—"}
+                </div>
+              </div>
+              <div className="result-cell">
+                <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 600, marginBottom: 8 }}>
+                  Units on syringe
+                </div>
+                <div
+                  className={calcReady && !exceedsSyringe ? "gold-text" : ""}
+                  style={{
+                    fontFamily: "'Cinzel', serif", fontSize: 28, fontWeight: 600,
+                    color: !calcReady ? "#3A3A32" : exceedsSyringe ? "#B04040" : undefined,
+                  }}
+                >
+                  {calcReady ? `${unitsOnSyringe.toFixed(0)} units` : "—"}
+                </div>
+                {exceedsSyringe && calcReady && (
+                  <div style={{ fontSize: 10, color: "#B04040", marginTop: 8, lineHeight: 1.5, letterSpacing: "0.02em" }}>
+                    Exceeds syringe capacity. Reduce dose or increase diluent.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {calcReady && (
+              <div style={{ marginTop: 18, fontSize: 11, color: "#5A5A52", letterSpacing: "0.02em", lineHeight: 1.7 }}>
+                Yields ~<span style={{ color: "#D4AF37", fontWeight: 600 }}>{dosesPerVial.toFixed(1)}</span> doses per vial.
+              </div>
+            )}
+
+            {/* Vial visualizer */}
+            <VialVisualizer diluentMl={diluentMl} volumePerDose={volumePerDose} doseMg={doseMg} />
+
+            <div style={{ marginTop: 28, textAlign: "center", fontSize: 10, color: "#4A4A42", letterSpacing: "0.04em" }}>
+              Visual reference only. Always verify with a calibrated scale.
+            </div>
+
+            <div style={{ marginTop: 56, padding: "18px 28px", border: "1px solid rgba(212,175,55,0.07)", fontSize: 11, color: "#3A3A32", lineHeight: 1.8, textAlign: "center" }}>
+              <strong style={{ color: "#5A5A52" }}>Disclaimer:</strong> This product is intended strictly for laboratory research purposes only. Not for human or animal consumption. Not for use in diagnostic or therapeutic applications.
+            </div>
+          </div>
+        )}
+
         {/* ── FAQ ── */}
         {section === "faq" && (
           <div className="fade-section">
             <div className="section-eyebrow">Support</div>
-            <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 52 }}>Frequently Asked</h2>
+            <h2 className="section-h2" style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 52 }}>Frequently Asked</h2>
             <div>
               {faqs.map((f, i) => (
                 <div key={i} className="faq-item">
@@ -666,14 +1178,178 @@ export default function App() {
           </div>
         )}
 
+        {/* ── Subscribe ── */}
+        {section === "subscribe" && (
+          <div className="fade-section" style={{ maxWidth: 880, margin: "0 auto" }}>
+            <div className="section-eyebrow">Membership</div>
+            <h2 className="section-h2" style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 18 }}>
+              Subscribe &amp; Save
+            </h2>
+            <p className="lead-copy" style={{ fontSize: 13, color: "#5A5A52", lineHeight: 1.88, maxWidth: 600, margin: "0 auto 56px", textAlign: "center" }}>
+              Predictable supply for ongoing research. Lock in your cadence, lock in your price.
+            </p>
+
+            {/* Tier grid */}
+            <div className="responsive-grid-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2, marginBottom: 64 }}>
+              {SUB_TIERS.map((t) => {
+                const active = selectedTier === t.key;
+                const perks = t.key === "monthly"
+                  ? ["Pause or cancel anytime", "Priority lot reservation", "Free shipping always"]
+                  : ["Pause or cancel anytime", "Priority lot reservation", "Free shipping over $200"];
+                return (
+                  <div
+                    key={t.key}
+                    className={`tier-card ${active ? "active" : ""}`}
+                    onClick={() => setSelectedTier(t.key)}
+                  >
+                    {/* inner inset */}
+                    <div style={{ position: "absolute", inset: 7, border: "1px solid rgba(212,175,55,0.09)", pointerEvents: "none" }} />
+
+                    {/* top-left pip */}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.1, zIndex: 1 }}>
+                      <span style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: "#D4AF37", fontWeight: 600 }}>A</span>
+                      <span style={{ color: "#D4AF37", fontSize: 14, marginTop: 1 }}>♠</span>
+                    </div>
+
+                    {/* Most popular tag */}
+                    {t.popular && (
+                      <span style={{
+                        position: "absolute", top: 16, right: 16,
+                        background: "linear-gradient(135deg, #9A7A1A 0%, #D4AF37 50%, #F5D07A 100%)",
+                        color: "#000", fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase",
+                        fontWeight: 700, padding: "4px 8px", fontFamily: "'Montserrat', sans-serif",
+                      }}>
+                        ♠ Most Popular
+                      </span>
+                    )}
+
+                    {/* Center content */}
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", zIndex: 1 }}>
+                      <div style={{ fontFamily: "'Cinzel', serif", fontSize: 22, letterSpacing: "0.08em", color: "#F0EFE8" }}>
+                        {t.name}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#4A4A42", letterSpacing: "0.06em", marginTop: 6, fontFamily: "'Montserrat', sans-serif" }}>
+                        {t.cadence}
+                      </div>
+                      <div className="gold-text" style={{ fontFamily: "'Cinzel', serif", fontSize: 36, fontWeight: 600, margin: "18px 0 16px" }}>
+                        {(t.discount * 100).toFixed(0)}% off
+                      </div>
+                      <ul style={{ listStyle: "none", padding: 0, margin: 0, fontSize: 11, color: "#5A5A52", lineHeight: 2, fontFamily: "'Montserrat', sans-serif" }}>
+                        {perks.map((p) => <li key={p}>{p}</li>)}
+                      </ul>
+                    </div>
+
+                    {/* Select button */}
+                    <button
+                      type="button"
+                      className={active ? "btn-gold" : "btn-outline-gold"}
+                      style={{ width: "100%", padding: "10px 14px", marginTop: 16, zIndex: 1 }}
+                      onClick={(e) => { e.stopPropagation(); setSelectedTier(t.key); }}
+                    >
+                      {active ? "Selected" : "Select"}
+                    </button>
+
+                    {/* bottom-right pip */}
+                    <div style={{ position: "absolute", bottom: 24, right: 24, display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1, transform: "rotate(180deg)", zIndex: 1 }}>
+                      <span style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: "#D4AF37", fontWeight: 600 }}>A</span>
+                      <span style={{ color: "#D4AF37", fontSize: 14, marginTop: 1 }}>♠</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Configurator */}
+            {selectedTier ? (
+              <div style={{ border: "1px solid rgba(212,175,55,0.18)", padding: 32, background: "rgba(212,175,55,0.02)" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.20em", textTransform: "uppercase", color: "#D4AF37", marginBottom: 10 }}>
+                  Configure your subscription
+                </div>
+
+                <div className="sub-row">
+                  <span style={{ fontSize: 11, color: "#6A6A60", letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 600 }}>
+                    Product
+                  </span>
+                  <select
+                    className="sub-select"
+                    value={subProductId}
+                    onChange={(e) => setSubProductId(parseInt(e.target.value, 10))}
+                  >
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name} — ${p.price.toFixed(2)}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="sub-row">
+                  <span style={{ fontSize: 11, color: "#6A6A60", letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 600 }}>
+                    Quantity per shipment
+                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <button type="button" className="qty-btn" onClick={() => setSubQty((q) => Math.max(1, q - 1))}>−</button>
+                    <span style={{ fontSize: 13, color: "#F0EFE8", minWidth: 16, textAlign: "center", fontFamily: "'Cinzel', serif" }}>
+                      {subQty}
+                    </span>
+                    <button type="button" className="qty-btn" onClick={() => setSubQty((q) => q + 1)}>+</button>
+                  </div>
+                </div>
+
+                <div className="sub-row" style={{ borderBottom: "none" }}>
+                  <span style={{ fontSize: 11, color: "#6A6A60", letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 600 }}>
+                    First shipment date
+                  </span>
+                  <input
+                    className="sub-date" type="date"
+                    value={subStartDate}
+                    onChange={(e) => setSubStartDate(e.target.value)}
+                    min={new Date().toISOString().slice(0, 10)}
+                  />
+                </div>
+
+                {/* Summary */}
+                <div className="config-summary" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 28 }}>
+                  <div>
+                    <div style={{ fontFamily: "'Cinzel', serif", fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#6A6A60" }}>
+                      Per-shipment total
+                    </div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginTop: 6 }}>
+                      <span style={{ fontSize: 14, color: "#4A4A42", textDecoration: "line-through", fontFamily: "'Cinzel', serif" }}>
+                        ${subOriginal.toFixed(2)}
+                      </span>
+                      <span className="gold-text" style={{ fontFamily: "'Cinzel', serif", fontSize: 24 }}>
+                        ${subTotal.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  <button className="btn-gold" style={{ padding: "16px 36px" }} onClick={startSubscription}>
+                    Start Subscription
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 18, fontSize: 10, color: "#4A4A42", letterSpacing: "0.04em", lineHeight: 1.7 }}>
+                  First shipment ships within 48 hours. Future shipments auto-renew.
+                </div>
+              </div>
+            ) : (
+              <div style={{ border: "1px dashed rgba(212,175,55,0.18)", padding: "48px 32px", textAlign: "center", fontSize: 11, color: "#4A4A42", letterSpacing: "0.18em", textTransform: "uppercase" }}>
+                Select a tier above to configure your subscription
+              </div>
+            )}
+
+            <div style={{ marginTop: 56, padding: "18px 28px", border: "1px solid rgba(212,175,55,0.07)", fontSize: 11, color: "#3A3A32", lineHeight: 1.8, textAlign: "center" }}>
+              <strong style={{ color: "#5A5A52" }}>Disclaimer:</strong> This product is intended strictly for laboratory research purposes only. Not for human or animal consumption. Not for use in diagnostic or therapeutic applications.
+            </div>
+          </div>
+        )}
+
         {/* ── Cart ── */}
         {section === "cart" && (
           <div className="fade-section">
             <div className="section-eyebrow">Order</div>
-            <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 52 }}>Your Cart</h2>
+            <h2 className="section-h2" style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 52 }}>Your Cart</h2>
 
             {cart.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "80px 0" }}>
+              <div className="empty-cart" style={{ textAlign: "center", padding: "80px 0" }}>
                 <div style={{ fontSize: 36, marginBottom: 20, opacity: 0.2, color: "#D4AF37" }}>◈</div>
                 <p style={{ fontSize: 13, marginBottom: 28, color: "#4A4A42" }}>Your cart is empty.</p>
                 <button className="btn-outline-gold" onClick={() => setSection("products")}>Browse Products</button>
@@ -681,7 +1357,7 @@ export default function App() {
             ) : (
               <>
                 {cart.map((item) => (
-                  <div key={item.id} className="cart-item-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "24px 0" }}>
+                  <div key={item.id} className="cart-item-row cart-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "24px 0" }}>
                     <div>
                       <div style={{ fontFamily: "'Cinzel', serif", fontSize: 15, fontWeight: 400, letterSpacing: "0.04em", marginBottom: 12 }}>{item.name}</div>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -747,7 +1423,7 @@ export default function App() {
       </main>
 
       <div className="divider-gold" />
-      <footer style={{ padding: "26px 56px", display: "flex", justifyContent: "space-between", fontSize: 9, color: "#2A2A22", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+      <footer className="footer-bar" style={{ padding: "26px 56px", display: "flex", justifyContent: "space-between", fontSize: 9, color: "#2A2A22", letterSpacing: "0.1em", textTransform: "uppercase" }}>
         <span>© 2026 Ace Peptides — All products for laboratory research use only.</span>
         <span>Terms · Privacy · Contact</span>
       </footer>
