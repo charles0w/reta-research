@@ -9,7 +9,9 @@
       "Bash(gh pr *)",
       "Bash(winget list *)",
       "Bash(git merge *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)"
     ]
   }
 }
