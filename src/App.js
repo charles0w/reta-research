@@ -1985,7 +1985,7 @@ function CardInputB({ T, lightMode, label, value, onChange }) {
 }
 
 // ────────────────────────────────────────────────
-// CALCULATOR — dosing calculator with animated syringe
+// CALCULATOR — concentration calculator with animated syringe
 // ────────────────────────────────────────────────
 function CalcB({ T, lightMode }) {
   const panel = lightMode ? "#FAF9F2" : "#0A0A0A";
@@ -2009,9 +2009,9 @@ function CalcB({ T, lightMode }) {
 
   return (
     <section style={{ padding: "72px 48px 120px" }}>
-      <SuitAnchor T={T} suit="♣" label="THE DEAL" sub="dosing calculator" />
+      <SuitAnchor T={T} suit="♣" label="THE DEAL" sub="concentration calculator" />
       <h2 style={{ fontFamily: T.fontSerif, fontSize: 64, fontWeight: 600, marginTop: 8, marginBottom: 14, letterSpacing: "0.02em" }}>
-        Reconstitution & Dosing
+        Reconstitution and Concentration
       </h2>
       <p style={{ fontSize: 14, color: subtle, lineHeight: 1.7, maxWidth: 640, marginBottom: 40 }}>
         For research planning. Enter your vial mass, the volume of bacteriostatic water you'll add, and your target dose. We'll compute the draw on a standard insulin syringe.
