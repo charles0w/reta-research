@@ -1,6 +1,12 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
+import CoinbaseWalletSDK from "@coinbase/wallet-sdk";
+
+// On-chain destination for direct ETH payments (Coinbase Wallet / MetaMask).
+const RECIPIENT_ADDRESS = "0x74e9af21c6060328371b3813689b472132f89cbd";
+const coinbaseWallet = new CoinbaseWalletSDK({ appName: "Ace Peptides" });
+const coinbaseProvider = coinbaseWallet.makeWeb3Provider();
 
 const ACE_TOKENS = {
   bg: "#030303",
@@ -682,8 +688,17 @@ function DirectionB({ tweaks = {}, frameId = "b" }) {
   const [revealCard, setRevealCard] = useState(false);
   const [activeProduct, setActiveProduct] = useState(1);
   const [checkoutMethod, setCheckoutMethod] = useState("card");
-  const [walletConnected, setWalletConnected] = useState(false);
-  const [txStatus, setTxStatus] = useState(null);
+
+  // Direct ETH wallet (Coinbase Wallet / MetaMask)
+  const [walletAddress, setWalletAddress] = useState(null);
+  const [txHash, setTxHash] = useState(null);
+  const [walletError, setWalletError] = useState(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const activeProvider = useRef(null);
+
+  // Coinbase Commerce hosted checkout (card → crypto)
+  const [commerceLoading, setCommerceLoading] = useState(false);
+  const [commerceError, setCommerceError] = useState(null);
 
   // Trigger card reveal after mount
   useEffect(() => {
@@ -712,6 +727,78 @@ function DirectionB({ tweaks = {}, frameId = "b" }) {
     );
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+  // ─── Wallet checkout (direct ETH) ───
+  const connectWallet = async (provider) => {
+    setWalletError(null);
+    try {
+      const accounts = await provider.request({ method: "eth_requestAccounts" });
+      activeProvider.current = provider;
+      setWalletAddress(accounts[0]);
+    } catch {
+      setWalletError("Wallet connection was rejected.");
+    }
+  };
+  const connectMetaMask = () => {
+    if (!window.ethereum) {
+      setWalletError("MetaMask not detected. Please install the MetaMask extension.");
+      return;
+    }
+    connectWallet(window.ethereum);
+  };
+  const connectCoinbase = () => connectWallet(coinbaseProvider);
+
+  const payWithWallet = async () => {
+    const provider = activeProvider.current;
+    if (!provider || !walletAddress) return;
+    setPaymentLoading(true);
+    setWalletError(null);
+    setTxHash(null);
+    try {
+      const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
+      const data = await res.json();
+      const ethPrice = data.ethereum.usd;
+      const ethAmount = cartTotal / ethPrice;
+      const weiAmount = BigInt(Math.round(ethAmount * 1e14)) * 10000n;
+      const hexValue = "0x" + weiAmount.toString(16);
+      const tx = await provider.request({
+        method: "eth_sendTransaction",
+        params: [{ from: walletAddress, to: RECIPIENT_ADDRESS, value: hexValue }],
+      });
+      setTxHash(tx);
+    } catch (err) {
+      setWalletError(err.message || "Transaction failed. Please try again.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // ─── Coinbase Commerce checkout (card / Apple Pay → crypto) ───
+  // POSTs the cart total to /api/create-charge, which creates a hosted charge
+  // via the Coinbase Commerce API and returns a hosted_url. We redirect the
+  // user there to complete the card or wallet payment; merchant settles in
+  // crypto. The endpoint is already wired in api/create-charge.js.
+  const payWithCommerce = async () => {
+    if (cart.length === 0) return;
+    setCommerceLoading(true);
+    setCommerceError(null);
+    try {
+      const description = cart.map((i) => `${i.qty}× ${i.name}`).join(", ");
+      const res = await fetch("/api/create-charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: cartTotal, description }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Could not start checkout.");
+      }
+      window.location.href = data.url;
+    } catch (err) {
+      setCommerceError(err.message || "Checkout could not be started. Please try again.");
+      setCommerceLoading(false);
+    }
+  };
 
   const bg = lightMode ? "#F4F3EC" : "#030303";
   const fg = lightMode ? "#1F1F1A" : T.ink0;
@@ -856,8 +943,16 @@ function DirectionB({ tweaks = {}, frameId = "b" }) {
             T={T} lightMode={lightMode} cart={cart} cartTotal={cartTotal}
             updateQty={updateQty} removeFromCart={removeFromCart}
             checkoutMethod={checkoutMethod} setCheckoutMethod={setCheckoutMethod}
-            walletConnected={walletConnected} setWalletConnected={setWalletConnected}
-            txStatus={txStatus} setTxStatus={setTxStatus}
+            walletAddress={walletAddress}
+            txHash={txHash}
+            walletError={walletError}
+            paymentLoading={paymentLoading}
+            connectCoinbase={connectCoinbase}
+            connectMetaMask={connectMetaMask}
+            payWithWallet={payWithWallet}
+            commerceLoading={commerceLoading}
+            commerceError={commerceError}
+            payWithCommerce={payWithCommerce}
             setSection={setSection}
           />
         )}
@@ -1720,19 +1815,14 @@ function FaqB({ T, lightMode, openFaq, setOpenFaq }) {
 // ────────────────────────────────────────────────
 function CartB({
   T, lightMode, cart, cartTotal, updateQty, removeFromCart,
-  checkoutMethod, setCheckoutMethod, walletConnected, setWalletConnected,
-  txStatus, setTxStatus, setSection,
+  checkoutMethod, setCheckoutMethod,
+  walletAddress, txHash, walletError, paymentLoading,
+  connectCoinbase, connectMetaMask, payWithWallet,
+  commerceLoading, commerceError, payWithCommerce,
+  setSection,
 }) {
   const panel = lightMode ? "#FAF9F2" : "#0A0A0A";
   const subtle = lightMode ? "#6A6A60" : T.ink3;
-  const [cardNum, setCardNum] = useState("4242 4242 4242 4242");
-  const [cardExp, setCardExp] = useState("04/29");
-  const [cardCvc, setCardCvc] = useState("123");
-
-  const fakePay = () => {
-    setTxStatus("processing");
-    setTimeout(() => setTxStatus("success"), 1600);
-  };
 
   return (
     <section style={{ padding: "72px 48px 120px", maxWidth: 1160, margin: "0 auto" }}>
@@ -1841,12 +1931,12 @@ function CartB({
               ))}
             </div>
 
-            {txStatus === "success" ? (
+            {txHash ? (
               <div style={{ textAlign: "center", padding: "32px 0" }}>
                 <div style={{ fontSize: 54, color: T.green, marginBottom: 14 }}>◉</div>
                 <div style={{ fontFamily: T.fontSerif, fontSize: 22, color: T.green, fontWeight: 600 }}>Payment Confirmed</div>
-                <div style={{ fontFamily: T.fontDisplay, fontSize: 10, color: subtle, marginTop: 10, letterSpacing: "0.16em" }}>
-                  REF · 0x9a41e7b3…f0d2
+                <div style={{ fontFamily: T.fontDisplay, fontSize: 10, color: subtle, marginTop: 10, letterSpacing: "0.16em", wordBreak: "break-all", padding: "0 16px" }}>
+                  TX · {txHash}
                 </div>
                 <div style={{ fontSize: 13, color: subtle, marginTop: 20, lineHeight: 1.7 }}>
                   COA and tracking link will arrive within 2h.<br />Thank you for ordering from Ace.
@@ -1854,6 +1944,8 @@ function CartB({
               </div>
             ) : checkoutMethod === "card" ? (
               <>
+                {/* Brand totem — non-interactive. Real card capture happens on
+                    the Coinbase Commerce hosted checkout page after redirect. */}
                 <div style={{
                   background: `linear-gradient(135deg, ${T.gold1} 0%, ${T.gold3} 55%, ${T.gold4} 100%)`,
                   color: "#000", padding: 24, marginBottom: 20,
@@ -1867,17 +1959,15 @@ function CartB({
                     </div>
                     <span style={{ fontFamily: T.fontSerif, fontSize: 24, fontWeight: 700 }}>♠</span>
                   </div>
-                  <div style={{ fontFamily: T.fontDisplay, fontSize: 20, letterSpacing: "0.14em", marginTop: 42, fontWeight: 600 }}>
-                    {cardNum.replace(/(\d{4})/g, "$1 ").trim()}
+                  <div style={{ fontFamily: T.fontDisplay, fontSize: 20, letterSpacing: "0.18em", marginTop: 42, fontWeight: 600 }}>
+                    •••• •••• •••• ••••
                   </div>
-                  <div style={{ display: "flex", gap: 34, marginTop: 14, fontFamily: T.fontDisplay, fontSize: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 8, letterSpacing: "0.22em", opacity: 0.6 }}>EXP</div>
-                      <div style={{ fontWeight: 600 }}>{cardExp}</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 14 }}>
+                    <div style={{ fontFamily: T.fontDisplay, fontSize: 10, letterSpacing: "0.22em", opacity: 0.85 }}>
+                      CARD · APPLE PAY · ACH
                     </div>
-                    <div>
-                      <div style={{ fontSize: 8, letterSpacing: "0.22em", opacity: 0.6 }}>CVC</div>
-                      <div style={{ fontWeight: 600 }}>•••</div>
+                    <div style={{ fontFamily: T.fontSerif, fontSize: 16, fontWeight: 700 }}>
+                      ${cartTotal.toFixed(2)}
                     </div>
                   </div>
                   <div style={{
@@ -1887,34 +1977,39 @@ function CartB({
                   }} />
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <CardInputB T={T} lightMode={lightMode} label="CARD NUMBER" value={cardNum} onChange={setCardNum} />
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    <CardInputB T={T} lightMode={lightMode} label="EXP" value={cardExp} onChange={setCardExp} />
-                    <CardInputB T={T} lightMode={lightMode} label="CVC" value={cardCvc} onChange={setCardCvc} />
-                  </div>
+                <div style={{ fontSize: 13, color: subtle, lineHeight: 1.7, marginBottom: 16 }}>
+                  Pay with card, Apple Pay, or bank transfer via secure
+                  Coinbase Commerce checkout. Funds settle to Ace as crypto —
+                  no chargebacks, no bank delays.
                 </div>
 
                 <button
                   className="ace-btn-gold"
-                  style={{ width: "100%", padding: 18, marginTop: 20 }}
-                  disabled={txStatus === "processing"}
-                  onClick={fakePay}
+                  style={{ width: "100%", padding: 18 }}
+                  disabled={commerceLoading || cart.length === 0}
+                  onClick={payWithCommerce}
                 >
-                  {txStatus === "processing" ? "◌ PROCESSING…" : `▸ Pay $${cartTotal.toFixed(2)}`}
+                  {commerceLoading
+                    ? "◌ STARTING CHECKOUT…"
+                    : `▸ Continue · $${cartTotal.toFixed(2)}`}
                 </button>
+                {commerceError && (
+                  <div style={{ fontFamily: T.fontDisplay, fontSize: 11, color: T.red, marginTop: 12, letterSpacing: "0.04em" }}>
+                    {commerceError}
+                  </div>
+                )}
               </>
             ) : (
               <>
                 <div style={{ fontSize: 14, color: subtle, lineHeight: 1.7, marginBottom: 20 }}>
                   Settle in ETH, direct wallet-to-wallet. Conversion happens at live rate at the moment of signing.
                 </div>
-                {!walletConnected ? (
+                {!walletAddress ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    <button className="ace-btn-gold" style={{ width: "100%", padding: 16 }} onClick={() => setWalletConnected("coinbase")}>
+                    <button className="ace-btn-gold" style={{ width: "100%", padding: 16 }} onClick={connectCoinbase}>
                       ▸ Coinbase Wallet
                     </button>
-                    <button className="ace-btn-outline" style={{ width: "100%", padding: 16 }} onClick={() => setWalletConnected("metamask")}>
+                    <button className="ace-btn-outline" style={{ width: "100%", padding: 16 }} onClick={connectMetaMask}>
                       ▸ MetaMask
                     </button>
                   </div>
@@ -1923,13 +2018,18 @@ function CartB({
                     <div style={{ padding: 16, border: "1px dashed rgba(212,175,55,0.3)", marginBottom: 16 }}>
                       <div style={{ fontFamily: T.fontDisplay, fontSize: 9, color: T.gold3, letterSpacing: "0.26em" }}>CONNECTED</div>
                       <div style={{ fontFamily: T.fontDisplay, fontSize: 12, marginTop: 8, wordBreak: "break-all", color: lightMode ? T.ink5 : T.ink1 }}>
-                        0x74e9af21c6060328371b3813689b472132f89cbd
+                        {walletAddress}
                       </div>
                     </div>
-                    <button className="ace-btn-gold" style={{ width: "100%", padding: 18 }} disabled={txStatus === "processing"} onClick={fakePay}>
-                      {txStatus === "processing" ? "◌ AWAITING SIGNATURE…" : `▸ Pay ${(cartTotal / 3400).toFixed(5)} ETH`}
+                    <button className="ace-btn-gold" style={{ width: "100%", padding: 18 }} disabled={paymentLoading} onClick={payWithWallet}>
+                      {paymentLoading ? "◌ AWAITING SIGNATURE…" : `▸ Pay $${cartTotal.toFixed(2)} in ETH`}
                     </button>
                   </>
+                )}
+                {walletError && (
+                  <div style={{ fontFamily: T.fontDisplay, fontSize: 11, color: T.red, marginTop: 12, letterSpacing: "0.04em" }}>
+                    {walletError}
+                  </div>
                 )}
               </>
             )}
@@ -1955,33 +2055,6 @@ function qtyBtnB(T) {
     cursor: "pointer",
     display: "inline-flex", alignItems: "center", justifyContent: "center",
   };
-}
-
-function CardInputB({ T, lightMode, label, value, onChange }) {
-  return (
-    <label style={{ display: "block" }}>
-      <span style={{ fontFamily: T.fontDisplay, fontSize: 9, letterSpacing: "0.24em", color: T.gold3, display: "block", marginBottom: 6 }}>
-        {label}
-      </span>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          width: "100%",
-          background: "transparent",
-          border: "1px solid rgba(212,175,55,0.25)",
-          color: lightMode ? T.ink5 : T.ink0,
-          padding: "12px 14px",
-          fontFamily: T.fontDisplay,
-          fontSize: 14,
-          letterSpacing: "0.14em",
-          outline: "none",
-        }}
-        onFocus={(e) => (e.target.style.borderColor = T.gold3)}
-        onBlur={(e) => (e.target.style.borderColor = "rgba(212,175,55,0.25)")}
-      />
-    </label>
-  );
 }
 
 // ────────────────────────────────────────────────
