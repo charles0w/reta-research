@@ -1,3 +1,18 @@
+import { useEffect, useRef, useState } from "react";
+
+const SQUARE_APP_ID      = process.env.REACT_APP_SQUARE_APP_ID      || "";
+const SQUARE_LOCATION_ID = process.env.REACT_APP_SQUARE_LOCATION_ID || "";
+
+function loadSquare() {
+  return new Promise((resolve) => {
+    if (window.Square) return resolve();
+    const s = document.createElement("script");
+    s.src = "https://web.squarecdn.com/v1/square.js";
+    s.onload = resolve;
+    document.head.appendChild(s);
+  });
+}
+
 const FIELDS = [
   { key: "name",    label: "Full name",      type: "text",  half: false },
   { key: "email",   label: "Email",          type: "email", half: false },
@@ -12,12 +27,51 @@ export default function CartDrawer({
   cart, cartTotal, updateQty, removeFromCart,
   walletAddress, txHash, walletError, paymentLoading,
   connectMetaMask, connectCoinbase, payWithWallet,
-  cashAppButtonRef, cashAppLoading, cashAppError,
-  squareAppId,
-  shippingInfo, setShippingInfo,
+  cashAppLoading: redirectLoading, cashAppError: redirectError,
+  shippingInfo, setShippingInfo, shippingReady,
 }) {
-  const shippingReady = ["name", "email", "address", "city", "state", "zip"]
-    .every((k) => shippingInfo[k]?.trim());
+  const buttonRef = useRef(null);
+  const [btnLoading, setBtnLoading] = useState(false);
+  const [btnError,   setBtnError]   = useState(null);
+
+  // Init Square Cash App Pay button whenever shippingReady flips true
+  useEffect(() => {
+    if (!shippingReady || !SQUARE_APP_ID || txHash) return;
+    let cap;
+    let destroyed = false;
+
+    (async () => {
+      setBtnError(null);
+      try {
+        await loadSquare();
+        // Wait one tick so the ref div is guaranteed in the DOM
+        await new Promise((r) => setTimeout(r, 50));
+        if (destroyed || !buttonRef.current) return;
+
+        const ref = `ace-${Date.now()}`;
+        sessionStorage.setItem("ace-ref", ref);
+
+        const payments = window.Square.payments(SQUARE_APP_ID, SQUARE_LOCATION_ID);
+        const paymentRequest = payments.paymentRequest({
+          countryCode: "US",
+          currencyCode: "USD",
+          total: { amount: String(cartTotal.toFixed(2)), label: "Total" },
+        });
+        cap = await payments.cashAppPay(paymentRequest, {
+          redirectURL: window.location.origin,
+          referenceId: ref,
+        });
+        await cap.attach(buttonRef.current);
+      } catch (err) {
+        if (!destroyed) setBtnError(err?.message || "Cash App Pay failed to load");
+      }
+    })();
+
+    return () => {
+      destroyed = true;
+      cap?.destroy?.();
+    };
+  }, [shippingReady, txHash]);
 
   return (
     <>
@@ -96,15 +150,11 @@ export default function CartDrawer({
                       onChange={(e) => setShippingInfo((s) => ({ ...s, [key]: e.target.value }))}
                       style={{
                         width: half ? "calc(50% - 7px)" : "100%",
-                        background: "transparent",
-                        border: "none",
+                        background: "transparent", border: "none",
                         borderBottom: "1px solid rgba(212,175,55,0.22)",
-                        color: "var(--text)",
-                        padding: "10px 0",
-                        fontSize: 12,
-                        fontFamily: "var(--font-sans)",
-                        outline: "none",
-                        transition: "border-color 0.2s",
+                        color: "var(--text)", padding: "10px 0",
+                        fontSize: 12, fontFamily: "var(--font-sans)",
+                        outline: "none", transition: "border-color 0.2s",
                       }}
                       onFocus={(e) => (e.target.style.borderBottomColor = "rgba(212,175,55,0.65)")}
                       onBlur={(e)  => (e.target.style.borderBottomColor = "rgba(212,175,55,0.22)")}
@@ -113,7 +163,6 @@ export default function CartDrawer({
                 </div>
               </div>
 
-              {/* Payment — gated on shipping */}
               {!shippingReady && (
                 <div style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.1em", textAlign: "center", padding: "12px 0 16px", borderTop: "1px dashed rgba(212,175,55,0.12)" }}>
                   Complete shipping details to continue
@@ -162,8 +211,8 @@ export default function CartDrawer({
                     {walletError && <div className="error-msg">{walletError}</div>}
                   </div>
 
-                  {/* Cash App */}
-                  {squareAppId && !txHash && (
+                  {/* Cash App Pay */}
+                  {SQUARE_APP_ID && !txHash && (
                     <div style={{ border: "1px solid var(--border)", padding: "24px", background: "rgba(212,175,55,0.02)", marginBottom: 28 }}>
                       <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12, color: "var(--gold)", fontFamily: "var(--font-sans)" }}>
                         ♠ Pay with Cash App
@@ -171,10 +220,12 @@ export default function CartDrawer({
                       <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16, lineHeight: 1.75 }}>
                         Pay instantly with Cash App — no wallet setup required.
                       </div>
-                      {cashAppError && <div className="error-msg">{cashAppError}</div>}
-                      {cashAppLoading
+                      {(btnError || redirectError) && (
+                        <div className="error-msg">{btnError || redirectError}</div>
+                      )}
+                      {(redirectLoading || btnLoading)
                         ? <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: "0.12em", textTransform: "uppercase", textAlign: "center", padding: 16 }}>Processing…</div>
-                        : <div ref={cashAppButtonRef} />
+                        : <div ref={buttonRef} />
                       }
                     </div>
                   )}
@@ -191,34 +242,29 @@ export default function CartDrawer({
 
       <style>{`
         .drawer-backdrop {
-          position: fixed; inset: 0;
-          background: rgba(0,0,0,0.65);
-          backdrop-filter: blur(4px);
-          z-index: 400; opacity: 0; pointer-events: none;
+          position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+          backdrop-filter: blur(4px); z-index: 400; opacity: 0; pointer-events: none;
           transition: opacity 0.3s ease;
         }
         .drawer-backdrop.open { opacity: 1; pointer-events: all; }
         .cart-drawer {
-          position: fixed; top: 0; right: 0; bottom: 0;
-          width: min(460px, 100vw);
-          background: #090909;
-          border-left: 1px solid var(--border);
+          position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 100vw);
+          background: #090909; border-left: 1px solid var(--border);
           z-index: 500; display: flex; flex-direction: column;
           transform: translateX(100%);
           transition: transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
         .cart-drawer.open { transform: translateX(0); }
         .drawer-header {
-          padding: 24px 28px;
-          border-bottom: 1px solid var(--border);
+          padding: 24px 28px; border-bottom: 1px solid var(--border);
           display: flex; justify-content: space-between; align-items: center;
           flex-shrink: 0; position: sticky; top: 0; background: #090909; z-index: 1;
         }
         .drawer-close {
-          background: none; border: 1px solid var(--border);
-          color: var(--text-secondary); cursor: pointer;
-          width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-          font-size: 16px; transition: border-color 0.2s, color 0.2s;
+          background: none; border: 1px solid var(--border); color: var(--text-secondary);
+          cursor: pointer; width: 36px; height: 36px; display: flex;
+          align-items: center; justify-content: center; font-size: 16px;
+          transition: border-color 0.2s, color 0.2s;
         }
         .drawer-close:hover { border-color: var(--gold); color: var(--gold); }
         .drawer-body { flex: 1; overflow-y: auto; padding: 0 28px; }

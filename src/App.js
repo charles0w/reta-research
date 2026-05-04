@@ -72,8 +72,7 @@ export default function App() {
   const [paymentLoading, setPaymentLoading]   = useState(false);
   const activeProvider = useRef(null);
 
-  // Cash App
-  const cashAppButtonRef                    = useRef(null);
+  // Cash App (redirect-return state only — button managed inside CartDrawer)
   const [cashAppLoading, setCashAppLoading] = useState(false);
   const [cashAppError, setCashAppError]     = useState(null);
 
@@ -96,8 +95,10 @@ export default function App() {
     return d.toISOString().slice(0, 10);
   });
 
-  const cartTotal  = cart.reduce((s, i) => s + i.price * i.qty, 0);
-  const totalItems = cart.reduce((s, i) => s + i.qty, 0);
+  const cartTotal     = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const totalItems    = cart.reduce((s, i) => s + i.qty, 0);
+  const shippingReady = ["name", "email", "address", "city", "state", "zip"]
+    .every((k) => shippingInfo[k]?.trim());
 
   const addToCart = useCallback((p) => {
     setCart((prev) => {
@@ -191,23 +192,6 @@ export default function App() {
       }
     })();
   }, []); // eslint-disable-line
-
-  // Mount Cash App button when drawer opens
-  useEffect(() => {
-    if (!cartOpen || !cart.length || !SQUARE_APP_ID || !cashAppButtonRef.current) return;
-    const ref = `ace-${Date.now()}`;
-    sessionStorage.setItem("ace-ref", ref);
-    let cap;
-    (async () => {
-      try {
-        await loadSquare();
-        const payments = window.Square.payments(SQUARE_APP_ID, SQUARE_LOCATION_ID);
-        cap = await payments.cashAppPay({ redirectURL: window.location.origin, referenceId: ref });
-        await cap.attach(cashAppButtonRef.current);
-      } catch { /* Square not configured */ }
-    })();
-    return () => { cap?.destroy?.(); };
-  }, [cartOpen, cart.length]); // eslint-disable-line
 
   const loadSquare = () =>
     new Promise((resolve) => {
@@ -343,12 +327,11 @@ export default function App() {
         connectMetaMask={connectMetaMask}
         connectCoinbase={connectCoinbase}
         payWithWallet={payWithWallet}
-        cashAppButtonRef={cashAppButtonRef}
         cashAppLoading={cashAppLoading}
         cashAppError={cashAppError}
-        squareAppId={SQUARE_APP_ID}
         shippingInfo={shippingInfo}
         setShippingInfo={setShippingInfo}
+        shippingReady={shippingReady}
       />
 
       <main style={{ maxWidth: 1080, margin: "0 auto", padding: "72px 40px 140px", position: "relative", zIndex: 1 }}>
