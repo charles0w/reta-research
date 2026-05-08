@@ -26,52 +26,84 @@ export default function CartDrawer({
   open, onClose,
   cart, cartTotal, updateQty, removeFromCart,
   walletAddress, txHash, walletError, paymentLoading,
-  connectMetaMask, connectCoinbase, payWithWallet,
+  connectMetaMask, connectCoinbase, payWithWallet, payWithCard,
   cashAppLoading: redirectLoading, cashAppError: redirectError,
   shippingInfo, setShippingInfo, shippingReady,
 }) {
-  const buttonRef = useRef(null);
-  const [btnLoading, setBtnLoading] = useState(false);
-  const [btnError,   setBtnError]   = useState(null);
+  const cashAppRef = useRef(null);
+  const cardRef    = useRef(null);
 
-  // Init Square Cash App Pay button whenever shippingReady flips true
+  const [btnLoading,    setBtnLoading]    = useState(false);
+  const [btnError,      setBtnError]      = useState(null);
+  const [cardInstance,  setCardInstance]  = useState(null);
+  const [cardLoading,   setCardLoading]   = useState(false);
+  const [cardError,     setCardError]     = useState(null);
+
+  // Init Square Cash App Pay + card form whenever shippingReady flips true
   useEffect(() => {
     if (!shippingReady || !SQUARE_APP_ID || txHash) return;
-    let cap;
+    let cap, cardObj;
     let destroyed = false;
 
     (async () => {
       setBtnError(null);
+      setCardError(null);
       try {
         await loadSquare();
-        // Wait one tick so the ref div is guaranteed in the DOM
         await new Promise((r) => setTimeout(r, 50));
-        if (destroyed || !buttonRef.current) return;
-
-        const ref = `ace-${Date.now()}`;
-        sessionStorage.setItem("ace-ref", ref);
+        if (destroyed) return;
 
         const payments = window.Square.payments(SQUARE_APP_ID, SQUARE_LOCATION_ID);
-        const paymentRequest = payments.paymentRequest({
-          countryCode: "US",
-          currencyCode: "USD",
-          total: { amount: String(cartTotal.toFixed(2)), label: "Total" },
-        });
-        cap = await payments.cashAppPay(paymentRequest, {
-          redirectURL: window.location.origin,
-          referenceId: ref,
-        });
-        await cap.attach(buttonRef.current);
+
+        // Cash App Pay button
+        if (cashAppRef.current) {
+          const ref = `ace-${Date.now()}`;
+          sessionStorage.setItem("ace-ref", ref);
+          const paymentRequest = payments.paymentRequest({
+            countryCode: "US",
+            currencyCode: "USD",
+            total: { amount: String(cartTotal.toFixed(2)), label: "Total" },
+          });
+          cap = await payments.cashAppPay(paymentRequest, {
+            redirectURL: window.location.origin,
+            referenceId: ref,
+          });
+          await cap.attach(cashAppRef.current);
+        }
+
+        // Card form
+        if (cardRef.current) {
+          cardObj = await payments.card();
+          await cardObj.attach(cardRef.current);
+          setCardInstance(cardObj);
+        }
       } catch (err) {
-        if (!destroyed) setBtnError(err?.message || "Cash App Pay failed to load");
+        if (!destroyed) setBtnError(err?.message || "Payment failed to load");
       }
     })();
 
     return () => {
       destroyed = true;
       cap?.destroy?.();
+      cardObj?.destroy?.();
+      setCardInstance(null);
     };
-  }, [shippingReady, txHash]);
+  }, [shippingReady, txHash, cartTotal]);
+
+  const handleCardPay = async () => {
+    if (!cardInstance) return;
+    setCardLoading(true);
+    setCardError(null);
+    try {
+      const result = await cardInstance.tokenize();
+      if (result.status !== "OK") throw new Error(result.errors?.[0]?.message || "Card declined");
+      await payWithCard(result.token);
+    } catch (err) {
+      setCardError(err.message);
+    } finally {
+      setCardLoading(false);
+    }
+  };
 
   return (
     <>
@@ -171,63 +203,89 @@ export default function CartDrawer({
 
               {shippingReady && (
                 <>
-                  {/* Crypto */}
-                  <div style={{ border: "1px solid var(--border)", padding: "24px", background: "rgba(212,175,55,0.02)", marginBottom: 12 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12, color: "var(--gold)", fontFamily: "var(--font-sans)" }}>
-                      Pay with Crypto
+                  {txHash ? (
+                    <div style={{ border: "1px solid rgba(50,150,50,0.3)", padding: "28px", background: "rgba(50,150,50,0.04)", marginBottom: 28, textAlign: "center" }}>
+                      <div className="success-msg" style={{ marginBottom: 8 }}>Payment confirmed.</div>
+                      <div style={{ fontSize: 10, color: "var(--text-secondary)", fontFamily: "monospace", wordBreak: "break-all", marginTop: 8 }}>
+                        {txHash.startsWith("cashapp:") && `Cash App Pay · ${txHash.replace("cashapp:", "")}`}
+                        {txHash.startsWith("card:")    && `Card · ${txHash.replace("card:", "")}`}
+                        {!txHash.startsWith("cashapp:") && !txHash.startsWith("card:") && `Tx: ${txHash}`}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 20, lineHeight: 1.75 }}>
-                      Connect your wallet to send ETH — instant settlement, no middlemen.
-                    </div>
-                    {txHash ? (
-                      <>
-                        <div className="success-msg">Payment sent successfully.</div>
-                        <div style={{ fontSize: 10, color: "var(--text-secondary)", fontFamily: "monospace", wordBreak: "break-all", marginTop: 8 }}>
-                          {txHash.startsWith("cashapp:")
-                            ? `Cash App Pay · ${txHash.replace("cashapp:", "")}`
-                            : `Tx: ${txHash}`}
+                  ) : (
+                    <>
+                      {/* Card payment */}
+                      {SQUARE_APP_ID && (
+                        <div style={{ border: "1px solid var(--border)", padding: "24px", background: "rgba(212,175,55,0.02)", marginBottom: 12 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12, color: "var(--gold)", fontFamily: "var(--font-sans)" }}>
+                            Pay with Card
+                          </div>
+                          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16, lineHeight: 1.75 }}>
+                            Visa, Mastercard, Amex — processed securely via Square.
+                          </div>
+                          <div ref={cardRef} style={{ marginBottom: 16 }} />
+                          {cardError && <div className="error-msg" style={{ marginBottom: 12 }}>{cardError}</div>}
+                          <button
+                            className="btn-gold"
+                            style={{ width: "100%", padding: 16 }}
+                            onClick={handleCardPay}
+                            disabled={cardLoading || paymentLoading || !cardInstance}
+                          >
+                            {cardLoading || paymentLoading ? "Processing…" : `Pay $${cartTotal.toFixed(2)}`}
+                          </button>
                         </div>
-                      </>
-                    ) : walletAddress ? (
-                      <>
-                        <div style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "var(--font-sans)" }}>Connected</div>
-                        <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "monospace", wordBreak: "break-all", marginTop: 8 }}>{walletAddress}</div>
-                        <button className="btn-gold" style={{ width: "100%", padding: 16, marginTop: 18 }} onClick={payWithWallet} disabled={paymentLoading}>
-                          {paymentLoading ? "Awaiting wallet…" : `Pay $${cartTotal.toFixed(2)} in ETH`}
-                        </button>
-                      </>
-                    ) : (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        <button className="btn-gold" style={{ width: "100%", padding: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }} onClick={connectCoinbase}>
-                          <svg width="18" height="18" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="14" fill="#0052FF"/><path d="M14 6C9.582 6 6 9.582 6 14s3.582 8 8 8 8-3.582 8-8-3.582-8-8-8zm-2.5 10.5v-5h5v5h-5z" fill="#fff"/></svg>
-                          Coinbase Wallet
-                        </button>
-                        <button className="btn-outline" style={{ width: "100%", padding: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }} onClick={connectMetaMask}>
-                          <svg width="18" height="18" viewBox="0 0 35 33" fill="none"><path d="M32.958 1L19.4 10.71l2.522-5.962L32.958 1z" fill="#E17726"/><path d="M2.042 1l13.44 9.808-2.4-5.96L2.042 1z" fill="#E27625"/><path d="M28.18 23.26l-3.6 5.51 7.7 2.12 2.21-7.52-6.31-.11z" fill="#E27625"/><path d="M.53 23.37l2.2 7.52 7.69-2.12-3.59-5.51-6.3.11z" fill="#E27625"/></svg>
-                          MetaMask
-                        </button>
-                      </div>
-                    )}
-                    {walletError && <div className="error-msg">{walletError}</div>}
-                  </div>
-
-                  {/* Cash App Pay */}
-                  {SQUARE_APP_ID && !txHash && (
-                    <div style={{ border: "1px solid var(--border)", padding: "24px", background: "rgba(212,175,55,0.02)", marginBottom: 28 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12, color: "var(--gold)", fontFamily: "var(--font-sans)" }}>
-                        ♠ Pay with Cash App
-                      </div>
-                      <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16, lineHeight: 1.75 }}>
-                        Pay instantly with Cash App — no wallet setup required.
-                      </div>
-                      {(btnError || redirectError) && (
-                        <div className="error-msg">{btnError || redirectError}</div>
                       )}
-                      {(redirectLoading || btnLoading)
-                        ? <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: "0.12em", textTransform: "uppercase", textAlign: "center", padding: 16 }}>Processing…</div>
-                        : <div ref={buttonRef} />
-                      }
-                    </div>
+
+                      {/* Cash App Pay */}
+                      {SQUARE_APP_ID && (
+                        <div style={{ border: "1px solid var(--border)", padding: "24px", background: "rgba(212,175,55,0.02)", marginBottom: 12 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12, color: "var(--gold)", fontFamily: "var(--font-sans)" }}>
+                            ♠ Pay with Cash App
+                          </div>
+                          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16, lineHeight: 1.75 }}>
+                            Pay instantly with Cash App — no card setup required.
+                          </div>
+                          {(btnError || redirectError) && (
+                            <div className="error-msg">{btnError || redirectError}</div>
+                          )}
+                          {(redirectLoading || btnLoading)
+                            ? <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: "0.12em", textTransform: "uppercase", textAlign: "center", padding: 16 }}>Processing…</div>
+                            : <div ref={cashAppRef} />
+                          }
+                        </div>
+                      )}
+
+                      {/* Crypto */}
+                      <div style={{ border: "1px solid var(--border)", padding: "24px", background: "rgba(212,175,55,0.02)", marginBottom: 28 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12, color: "var(--gold)", fontFamily: "var(--font-sans)" }}>
+                          Pay with Crypto
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 20, lineHeight: 1.75 }}>
+                          Connect your wallet to send ETH — instant settlement, no middlemen.
+                        </div>
+                        {walletAddress ? (
+                          <>
+                            <div style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "var(--font-sans)" }}>Connected</div>
+                            <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "monospace", wordBreak: "break-all", marginTop: 8 }}>{walletAddress}</div>
+                            <button className="btn-gold" style={{ width: "100%", padding: 16, marginTop: 18 }} onClick={payWithWallet} disabled={paymentLoading}>
+                              {paymentLoading ? "Awaiting wallet…" : `Pay $${cartTotal.toFixed(2)} in ETH`}
+                            </button>
+                          </>
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            <button className="btn-gold" style={{ width: "100%", padding: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }} onClick={connectCoinbase}>
+                              <svg width="18" height="18" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="14" fill="#0052FF"/><path d="M14 6C9.582 6 6 9.582 6 14s3.582 8 8 8 8-3.582 8-8-3.582-8-8-8zm-2.5 10.5v-5h5v5h-5z" fill="#fff"/></svg>
+                              Coinbase Wallet
+                            </button>
+                            <button className="btn-outline" style={{ width: "100%", padding: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }} onClick={connectMetaMask}>
+                              <svg width="18" height="18" viewBox="0 0 35 33" fill="none"><path d="M32.958 1L19.4 10.71l2.522-5.962L32.958 1z" fill="#E17726"/><path d="M2.042 1l13.44 9.808-2.4-5.96L2.042 1z" fill="#E27625"/><path d="M28.18 23.26l-3.6 5.51 7.7 2.12 2.21-7.52-6.31-.11z" fill="#E27625"/><path d="M.53 23.37l2.2 7.52 7.69-2.12-3.59-5.51-6.3.11z" fill="#E27625"/></svg>
+                              MetaMask
+                            </button>
+                          </div>
+                        )}
+                        {walletError && <div className="error-msg">{walletError}</div>}
+                      </div>
+                    </>
                   )}
                 </>
               )}

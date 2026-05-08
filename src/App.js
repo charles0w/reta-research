@@ -4,7 +4,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import CoinbaseWalletSDK from "@coinbase/wallet-sdk";
 
 import "./styles.css";
-import { products, PARTICLES, SUB_TIERS, SQUARE_APP_ID, SQUARE_LOCATION_ID, RECIPIENT_ADDRESS, researchFindings, faqs } from "./data";
+import { products, PARTICLES, SQUARE_APP_ID, SQUARE_LOCATION_ID, RECIPIENT_ADDRESS, researchFindings, faqs } from "./data";
 import Header from "./components/Header";
 import CartDrawer from "./components/CartDrawer";
 import ProductsSection from "./sections/ProductsSection";
@@ -12,11 +12,12 @@ import ResearchSection from "./sections/ResearchSection";
 import CalculatorSection from "./sections/CalculatorSection";
 import FaqSection from "./sections/FaqSection";
 import SubscribeSection from "./sections/SubscribeSection";
+import AdminSection from "./sections/AdminSection";
 
 const coinbaseWallet = new CoinbaseWalletSDK({ appName: "Ace Peptides" });
 const coinbaseProvider = coinbaseWallet.makeWeb3Provider();
 
-// ── Simple toast system ────────────────────────────────────────────────────
+// ── Toast system ──────────────────────────────────────────────────────────
 function useToasts() {
   const [toasts, setToasts] = useState([]);
 
@@ -46,7 +47,6 @@ function ToastContainer({ toasts }) {
   );
 }
 
-// ── Section renderer with CSS animation ───────────────────────────────────
 function SectionView({ section }) {
   const [displayed, setDisplayed] = useState(section);
   const [animKey, setAnimKey] = useState(0);
@@ -59,20 +59,88 @@ function SectionView({ section }) {
   return <div key={animKey} className="section-animate">{displayed}</div>;
 }
 
+// ── Email capture footer widget ───────────────────────────────────────────
+function EmailCapture() {
+  const [email, setEmail]   = useState("");
+  const [status, setStatus] = useState(null); // null | "loading" | "done" | "error"
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!email.includes("@")) return;
+    setStatus("loading");
+    try {
+      const r = await fetch("/api/capture-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, source: "footer" }),
+      });
+      setStatus(r.ok ? "done" : "error");
+    } catch {
+      setStatus("error");
+    }
+  };
+
+  if (status === "done") {
+    return (
+      <div style={{ fontSize: 10, color: "var(--gold)", letterSpacing: "0.16em", textTransform: "uppercase" }}>
+        ◈ You're on the list
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <input
+        type="email"
+        placeholder="Research updates"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        style={{
+          background: "transparent", border: "none",
+          borderBottom: "1px solid rgba(212,175,55,0.2)",
+          color: "var(--text)", padding: "6px 0",
+          fontSize: 11, fontFamily: "var(--font-sans)",
+          outline: "none", width: 160,
+          transition: "border-color 0.2s",
+        }}
+        onFocus={(e) => (e.target.style.borderBottomColor = "rgba(212,175,55,0.5)")}
+        onBlur={(e)  => (e.target.style.borderBottomColor = "rgba(212,175,55,0.2)")}
+      />
+      <button
+        type="submit"
+        disabled={status === "loading"}
+        style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--gold)", padding: 0 }}
+      >
+        →
+      </button>
+      {status === "error" && <span style={{ fontSize: 9, color: "#c04040" }}>Try again</span>}
+    </form>
+  );
+}
+
 export default function App() {
+  // ── Admin routing ────────────────────────────────────────────────────────
+  if (window.location.pathname === "/admin") {
+    return (
+      <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+        <AdminSection />
+      </div>
+    );
+  }
+
   const [section, setSection]       = useState("products");
   const [cartOpen, setCartOpen]     = useState(false);
   const [cart, setCart]             = useState([]);
   const { toasts, show: showToast } = useToasts();
 
   // Wallet
-  const [walletAddress, setWalletAddress]     = useState(null);
-  const [txHash, setTxHash]                   = useState(null);
-  const [walletError, setWalletError]         = useState(null);
-  const [paymentLoading, setPaymentLoading]   = useState(false);
+  const [walletAddress, setWalletAddress]   = useState(null);
+  const [txHash, setTxHash]                 = useState(null);
+  const [walletError, setWalletError]       = useState(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const activeProvider = useRef(null);
 
-  // Cash App (redirect-return state only — button managed inside CartDrawer)
+  // Cash App (redirect-return state only)
   const [cashAppLoading, setCashAppLoading] = useState(false);
   const [cashAppError, setCashAppError]     = useState(null);
 
@@ -85,15 +153,6 @@ export default function App() {
   const [diluentMl, setDiluentMl] = useState(2);
   const [doseMg, setDoseMg]       = useState(4);
   const [syringeMl, setSyringeMl] = useState(1);
-
-  // Subscribe
-  const [selectedTier, setSelectedTier]   = useState(null);
-  const [subProductId, setSubProductId]   = useState(products[1].id);
-  const [subQty, setSubQty]               = useState(1);
-  const [subStartDate, setSubStartDate]   = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() + 1);
-    return d.toISOString().slice(0, 10);
-  });
 
   const cartTotal     = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const totalItems    = cart.reduce((s, i) => s + i.qty, 0);
@@ -118,29 +177,14 @@ export default function App() {
       )
     ), []);
 
-  const startSubscription = () => {
-    if (!selectedTier) return;
-    const tier = SUB_TIERS.find((t) => t.key === selectedTier);
-    const subProduct = products.find((p) => p.id === subProductId) ?? products[1];
-    const subId = `sub-${selectedTier}-${subProduct.id}`;
-    const discountedPrice = +(subProduct.price * (1 - tier.discount)).toFixed(2);
-    setCart((prev) => {
-      const existing = prev.find((i) => i.id === subId);
-      if (existing) return prev.map((i) => i.id === subId ? { ...i, qty: i.qty + subQty } : i);
-      return [...prev, { ...subProduct, id: subId, name: `${subProduct.name} — ${tier.name} Subscription`, price: discountedPrice, qty: subQty, isSubscription: true }];
-    });
-    showToast(`${subProduct.name} — ${tier.name}`, "Subscription added");
-    setCartOpen(true);
-  };
-
-  // Persist cart + shipping for Cash App redirect
+  // Persist cart + shipping for Cash App redirect round-trip
   useEffect(() => {
     sessionStorage.setItem("ace-cart",     JSON.stringify(cart));
     sessionStorage.setItem("ace-total",    String(cartTotal));
     sessionStorage.setItem("ace-shipping", JSON.stringify(shippingInfo));
   }, [cart, cartTotal, shippingInfo]);
 
-  // Reset payment state when drawer closes after a confirmed payment
+  // Clear payment state when drawer closes after a confirmed payment
   useEffect(() => {
     if (!cartOpen && txHash) {
       setTxHash(null);
@@ -249,6 +293,25 @@ export default function App() {
     }
   };
 
+  const payWithCard = async (token) => {
+    setPaymentLoading(true);
+    setWalletError(null);
+    try {
+      const r = await fetch("/api/create-card-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, items: cart, total: cartTotal, shippingInfo }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Payment failed");
+      setTxHash("card:" + data.paymentId);
+    } catch (err) {
+      setWalletError(err.message || "Payment failed. Please try again.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
   if (process.env.REACT_APP_KILL_SWITCH === "true") {
     return (
       <div style={{ background: "var(--bg)", color: "var(--text)", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, fontFamily: "var(--font-sans)" }}>
@@ -258,7 +321,6 @@ export default function App() {
     );
   }
 
-  // Map section key → element
   const sectionMap = {
     products: <ProductsSection products={products} onAdd={addToCart} />,
     research: <ResearchSection researchFindings={researchFindings} />,
@@ -271,16 +333,7 @@ export default function App() {
       />
     ),
     faq: <FaqSection faqs={faqs} />,
-    subscribe: (
-      <SubscribeSection
-        products={products}
-        selectedTier={selectedTier}     setSelectedTier={setSelectedTier}
-        subProductId={subProductId}     setSubProductId={setSubProductId}
-        subQty={subQty}                 setSubQty={setSubQty}
-        subStartDate={subStartDate}     setSubStartDate={setSubStartDate}
-        onStartSubscription={startSubscription}
-      />
-    ),
+    subscribe: <SubscribeSection products={products} />,
   };
 
   return (
@@ -327,6 +380,7 @@ export default function App() {
         connectMetaMask={connectMetaMask}
         connectCoinbase={connectCoinbase}
         payWithWallet={payWithWallet}
+        payWithCard={payWithCard}
         cashAppLoading={cashAppLoading}
         cashAppError={cashAppError}
         shippingInfo={shippingInfo}
@@ -342,6 +396,7 @@ export default function App() {
 
       <footer className="site-footer">
         <span>© 2026 Ace Peptides — All products for laboratory research use only.</span>
+        <EmailCapture />
         <div style={{ display: "flex", gap: 20 }}>
           {["Terms", "Privacy", "Contact"].map((l) => (
             <span key={l} className="footer-link">{l}</span>
@@ -367,6 +422,8 @@ export default function App() {
           letter-spacing: 0.12em;
           text-transform: uppercase;
           font-family: var(--font-sans);
+          gap: 24px;
+          flex-wrap: wrap;
         }
         .footer-link {
           cursor: pointer;
@@ -375,7 +432,7 @@ export default function App() {
         .footer-link:hover { color: var(--gold); }
         @media (max-width: 720px) {
           main { padding: 48px 20px 100px !important; }
-          .site-footer { padding: 22px 20px !important; flex-direction: column !important; gap: 8px; text-align: center; }
+          .site-footer { padding: 22px 20px !important; flex-direction: column !important; gap: 16px; text-align: center; }
         }
       `}</style>
 

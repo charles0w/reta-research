@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { sendConfirmation } from './send-confirmation.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -17,5 +18,17 @@ export default async function handler(req, res) {
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  if (status === 'sent' && shippingInfo?.email) {
+    sendConfirmation({
+      to: shippingInfo.email,
+      name: shippingInfo.name,
+      items,
+      total,
+      paymentMethod: 'ETH',
+      paymentRef,
+    }).catch(() => {});
+  }
+
   res.json({ id: data.id });
 }

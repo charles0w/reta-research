@@ -33,7 +33,7 @@ export default async function handler(req, res) {
 
   const { data: order, error } = await supabase
     .from('orders')
-    .insert({ items, total_usd: total, payment_method: 'cash_app', payment_ref: paymentId, status: 'confirmed', shipping_info: shippingInfo })
+    .insert({ items, total_usd: total, payment_method: 'card', payment_ref: paymentId, status: 'confirmed', shipping_info: shippingInfo })
     .select()
     .single();
 
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     name: shippingInfo.name,
     items,
     total,
-    paymentMethod: 'Cash App Pay',
+    paymentMethod: 'Card',
     paymentRef: paymentId,
   }).catch(() => {});
 

@@ -21,6 +21,12 @@ export const faqs = [
   { q: "What observations have been reported in published findings?", a: "In controlled research settings, activation of these pathways has been associated with effects on appetite signaling, metabolic activity, and glucose-related markers." },
   { q: "Is this product for human consumption?", a: "No. This product is intended strictly for laboratory research purposes only. Not for human or animal consumption. Not for use in diagnostic or therapeutic applications." },
   { q: "Who can purchase?", a: "Products are available to qualified researchers, academic institutions, and licensed laboratories. By placing an order you confirm your purchase is solely for legitimate research purposes." },
+  { q: "What purity standards do your products meet?", a: "All compounds are HPLC-verified at ≥99.1% purity. A certificate of analysis (CoA) is available upon request for each lot number." },
+  { q: "How should the lyophilized powder be stored?", a: "Store in a cool, dry environment away from direct light. Lyophilized powder is stable at room temperature for short-term storage; for long-term storage −20°C is recommended. Once reconstituted, refrigerate and use within 28 days." },
+  { q: "How do I reconstitute the powder?", a: "Use the Reconstitution Calculator to determine the correct diluent volume for your target concentration. Inject bacteriostatic water or sterile saline slowly along the vial wall and swirl gently — do not shake." },
+  { q: "What payment methods are accepted?", a: "We accept card payments (Visa, Mastercard, Amex), Cash App Pay, and ETH via MetaMask or Coinbase Wallet. All card transactions are processed securely through Square." },
+  { q: "How long does shipping take?", a: "Orders are fulfilled within 1–2 business days and shipped via USPS Priority Mail (2–3 day delivery). You will receive a confirmation email with tracking once your order ships." },
+  { q: "Do you ship internationally?", a: "Currently we ship within the United States only. International shipping is planned for a future update." },
 ];
 
 export const SUB_TIERS = [
