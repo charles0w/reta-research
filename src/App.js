@@ -1,12 +1,13 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
-import CoinbaseWalletSDK from "@coinbase/wallet-sdk";
 
-// On-chain destination for direct ETH payments (Coinbase Wallet / MetaMask).
-const RECIPIENT_ADDRESS = "0x74e9af21c6060328371b3813689b472132f89cbd";
-const coinbaseWallet = new CoinbaseWalletSDK({ appName: "Ace Peptides" });
-const coinbaseProvider = coinbaseWallet.makeWeb3Provider();
+// Coinbase Commerce hosted checkout — no wallet required.
+// Set REACT_APP_COINBASE_CHARGE_CODE in your .env to use a static charge/product
+// page as a fallback when the dynamic /api/create-charge endpoint is unavailable.
+// Example: REACT_APP_COINBASE_CHARGE_CODE=abc123def
+// The hosted URL will be https://commerce.coinbase.com/checkout/<code>
+const COINBASE_CHARGE_CODE_FALLBACK = process.env.REACT_APP_COINBASE_CHARGE_CODE || null;
 
 const ACE_TOKENS = {
   bg: "#030303",
@@ -687,18 +688,12 @@ function DirectionB({ tweaks = {}, frameId = "b" }) {
   const [openFaq, setOpenFaq] = useState(0);
   const [revealCard, setRevealCard] = useState(false);
   const [activeProduct, setActiveProduct] = useState(1);
-  const [checkoutMethod, setCheckoutMethod] = useState("card");
-
-  // Direct ETH wallet (Coinbase Wallet / MetaMask)
-  const [walletAddress, setWalletAddress] = useState(null);
-  const [txHash, setTxHash] = useState(null);
-  const [walletError, setWalletError] = useState(null);
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const activeProvider = useRef(null);
-
-  // Coinbase Commerce hosted checkout (card → crypto)
+  // Coinbase Commerce hosted checkout — no wallet required
   const [commerceLoading, setCommerceLoading] = useState(false);
   const [commerceError, setCommerceError] = useState(null);
+
+  // Research attestation — must be checked before checkout is enabled
+  const [researchAttested, setResearchAttested] = useState(false);
 
   // Trigger card reveal after mount
   useEffect(() => {
@@ -728,56 +723,12 @@ function DirectionB({ tweaks = {}, frameId = "b" }) {
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
 
-  // ─── Wallet checkout (direct ETH) ───
-  const connectWallet = async (provider) => {
-    setWalletError(null);
-    try {
-      const accounts = await provider.request({ method: "eth_requestAccounts" });
-      activeProvider.current = provider;
-      setWalletAddress(accounts[0]);
-    } catch {
-      setWalletError("Wallet connection was rejected.");
-    }
-  };
-  const connectMetaMask = () => {
-    if (!window.ethereum) {
-      setWalletError("MetaMask not detected. Please install the MetaMask extension.");
-      return;
-    }
-    connectWallet(window.ethereum);
-  };
-  const connectCoinbase = () => connectWallet(coinbaseProvider);
-
-  const payWithWallet = async () => {
-    const provider = activeProvider.current;
-    if (!provider || !walletAddress) return;
-    setPaymentLoading(true);
-    setWalletError(null);
-    setTxHash(null);
-    try {
-      const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
-      const data = await res.json();
-      const ethPrice = data.ethereum.usd;
-      const ethAmount = cartTotal / ethPrice;
-      const weiAmount = BigInt(Math.round(ethAmount * 1e14)) * 10000n;
-      const hexValue = "0x" + weiAmount.toString(16);
-      const tx = await provider.request({
-        method: "eth_sendTransaction",
-        params: [{ from: walletAddress, to: RECIPIENT_ADDRESS, value: hexValue }],
-      });
-      setTxHash(tx);
-    } catch (err) {
-      setWalletError(err.message || "Transaction failed. Please try again.");
-    } finally {
-      setPaymentLoading(false);
-    }
-  };
-
-  // ─── Coinbase Commerce checkout (card / Apple Pay → crypto) ───
-  // POSTs the cart total to /api/create-charge, which creates a hosted charge
-  // via the Coinbase Commerce API and returns a hosted_url. We redirect the
-  // user there to complete the card or wallet payment; merchant settles in
-  // crypto. The endpoint is already wired in api/create-charge.js.
+  // ─── Coinbase Commerce hosted checkout ───
+  // Dynamically creates a charge via /api/create-charge (preferred) and opens
+  // Coinbase's hosted payment page. Customers can pay with a Coinbase account,
+  // Bitcoin, Ethereum, USDC, and more — no Web3 wallet setup needed.
+  // Falls back to a static charge code if the API call fails and
+  // REACT_APP_COINBASE_CHARGE_CODE is set.
   const payWithCommerce = async () => {
     if (cart.length === 0) return;
     setCommerceLoading(true);
@@ -793,8 +744,19 @@ function DirectionB({ tweaks = {}, frameId = "b" }) {
       if (!res.ok || !data.url) {
         throw new Error(data.error || "Could not start checkout.");
       }
-      window.location.href = data.url;
+      window.open(data.url, "_blank", "noopener,noreferrer");
+      setCommerceLoading(false);
     } catch (err) {
+      // Fallback to static charge code if configured
+      if (COINBASE_CHARGE_CODE_FALLBACK) {
+        window.open(
+          `https://commerce.coinbase.com/checkout/${COINBASE_CHARGE_CODE_FALLBACK}`,
+          "_blank",
+          "noopener,noreferrer"
+        );
+        setCommerceLoading(false);
+        return;
+      }
       setCommerceError(err.message || "Checkout could not be started. Please try again.");
       setCommerceLoading(false);
     }
@@ -942,17 +904,11 @@ function DirectionB({ tweaks = {}, frameId = "b" }) {
           <CartB
             T={T} lightMode={lightMode} cart={cart} cartTotal={cartTotal}
             updateQty={updateQty} removeFromCart={removeFromCart}
-            checkoutMethod={checkoutMethod} setCheckoutMethod={setCheckoutMethod}
-            walletAddress={walletAddress}
-            txHash={txHash}
-            walletError={walletError}
-            paymentLoading={paymentLoading}
-            connectCoinbase={connectCoinbase}
-            connectMetaMask={connectMetaMask}
-            payWithWallet={payWithWallet}
             commerceLoading={commerceLoading}
             commerceError={commerceError}
             payWithCommerce={payWithCommerce}
+            researchAttested={researchAttested}
+            setResearchAttested={setResearchAttested}
             setSection={setSection}
           />
         )}
@@ -1078,7 +1034,7 @@ function HomeB({ T, lightMode, revealCard, setSection, setActiveProduct, addToCa
               Studied as a triple receptor agonist — GLP-1, GIP, and glucagon. Observed to modulate body-weight, appetite signaling, and glucose markers across controlled metabolic studies.
             </p>
             <div style={{ display: "flex", gap: 14 }}>
-              <button className="ace-btn-gold" onClick={() => setSection("products")}>▸ Choose a Dose</button>
+              <button className="ace-btn-gold" onClick={() => setSection("products")}>▸ Browse Compounds</button>
               <button className="ace-btn-outline" onClick={() => setSection("research")}>▸ The Research</button>
             </div>
           </div>
@@ -1275,10 +1231,29 @@ function ProductsB({ T, lightMode, activeProduct, setActiveProduct, addToCart })
 
   return (
     <section style={{ padding: "72px 0 120px" }}>
+      {/* Research-use banner */}
+      <div style={{
+        margin: "0 0 32px",
+        padding: "12px 48px",
+        background: "rgba(180,140,20,0.12)",
+        borderTop: "1px solid rgba(212,175,55,0.35)",
+        borderBottom: "1px solid rgba(212,175,55,0.35)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 10,
+      }}>
+        <span style={{ color: T.gold3, fontFamily: T.fontDisplay, fontSize: 10, letterSpacing: "0.22em" }}>◆</span>
+        <span style={{ fontFamily: T.fontDisplay, fontSize: 10, letterSpacing: "0.22em", color: T.gold4, textTransform: "uppercase", fontWeight: 700 }}>
+          For Research Use Only — Not for Human Consumption
+        </span>
+        <span style={{ color: T.gold3, fontFamily: T.fontDisplay, fontSize: 10, letterSpacing: "0.22em" }}>◆</span>
+      </div>
+
       <div style={{ padding: "0 48px", marginBottom: 38 }}>
-        <SuitAnchor T={T} suit="♦" label="THE HAND" sub="three doses" />
+        <SuitAnchor T={T} suit="♦" label="THE HAND" sub="three sizes" />
         <h2 style={{ fontFamily: T.fontSerif, fontSize: 64, fontWeight: 600, marginTop: 8, letterSpacing: "0.02em" }}>
-          Three Doses
+          Three Sizes
         </h2>
         <p style={{ fontSize: 14, color: subtle, lineHeight: 1.7, maxWidth: 520, marginTop: 10 }}>
           Each compound synthesized in-house, assayed by HPLC and LC-MS, then sealed under inert atmosphere. <span style={{ color: T.gold3 }}>Hover any card</span> to deal it from the deck.
@@ -1465,7 +1440,7 @@ function ProductsB({ T, lightMode, activeProduct, setActiveProduct, addToCart })
       </div>
 
       <div style={{ padding: "0 48px", fontFamily: T.fontDisplay, fontSize: 10, letterSpacing: "0.24em", color: subtle, textTransform: "uppercase" }}>
-        ◂ scroll · snap to dose ▸
+        ◂ scroll · snap to size ▸
       </div>
     </section>
   );
@@ -1675,7 +1650,7 @@ function CoaB({ T, lightMode }) {
             ["CAS", p.cas],
             ["BATCH", p.batch],
             ["ISSUED", "04.23.2026"],
-            ["DOSE", `${p.mg}mg`],
+            ["AMOUNT", `${p.mg}mg`],
             ["FORM", "Lyophilized"],
             ["STORAGE", "−20°C"],
             ["COA HASH", "0x8f3a…e1b2"],
@@ -1815,10 +1790,8 @@ function FaqB({ T, lightMode, openFaq, setOpenFaq }) {
 // ────────────────────────────────────────────────
 function CartB({
   T, lightMode, cart, cartTotal, updateQty, removeFromCart,
-  checkoutMethod, setCheckoutMethod,
-  walletAddress, txHash, walletError, paymentLoading,
-  connectCoinbase, connectMetaMask, payWithWallet,
   commerceLoading, commerceError, payWithCommerce,
+  researchAttested, setResearchAttested,
   setSection,
 }) {
   const panel = lightMode ? "#FAF9F2" : "#0A0A0A";
@@ -1826,6 +1799,20 @@ function CartB({
 
   return (
     <section style={{ padding: "72px 48px 120px", maxWidth: 1160, margin: "0 auto" }}>
+      {/* Research-use banner */}
+      <div style={{
+        marginBottom: 32, padding: "12px 20px",
+        background: "rgba(180,140,20,0.12)",
+        border: "1px solid rgba(212,175,55,0.35)",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+      }}>
+        <span style={{ color: T.gold3, fontFamily: T.fontDisplay, fontSize: 10, letterSpacing: "0.22em" }}>◆</span>
+        <span style={{ fontFamily: T.fontDisplay, fontSize: 10, letterSpacing: "0.22em", color: T.gold4, textTransform: "uppercase", fontWeight: 700 }}>
+          For Research Use Only — Not for Human Consumption
+        </span>
+        <span style={{ color: T.gold3, fontFamily: T.fontDisplay, fontSize: 10, letterSpacing: "0.22em" }}>◆</span>
+      </div>
+
       <SuitAnchor T={T} suit="♠" label="THE HAND" sub="your order" />
       <h2 style={{ fontFamily: T.fontSerif, fontSize: 64, fontWeight: 600, marginTop: 8, marginBottom: 40, letterSpacing: "0.02em" }}>
         Your Order
@@ -1905,136 +1892,93 @@ function CartB({
 
             <div className="ace-eyebrow" style={{ marginBottom: 18 }}>▸ PAYMENT</div>
 
-            <div style={{ display: "flex", gap: 2, marginBottom: 24 }}>
-              {[
-                ["card",   "⬢ Card"],
-                ["crypto", "◆ Crypto"],
-              ].map(([k, l]) => (
-                <button
-                  key={k}
-                  onClick={() => setCheckoutMethod(k)}
-                  style={{
-                    flex: 1,
-                    background: checkoutMethod === k ? T.gold3 : "transparent",
-                    color: checkoutMethod === k ? "#000" : subtle,
-                    border: `1px solid ${checkoutMethod === k ? T.gold3 : "rgba(212,175,55,0.25)"}`,
-                    padding: "12px 14px",
-                    fontFamily: T.fontDisplay,
-                    fontSize: 11,
-                    letterSpacing: "0.22em",
-                    cursor: "pointer",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-
-            {txHash ? (
-              <div style={{ textAlign: "center", padding: "32px 0" }}>
-                <div style={{ fontSize: 54, color: T.green, marginBottom: 14 }}>◉</div>
-                <div style={{ fontFamily: T.fontSerif, fontSize: 22, color: T.green, fontWeight: 600 }}>Payment Confirmed</div>
-                <div style={{ fontFamily: T.fontDisplay, fontSize: 10, color: subtle, marginTop: 10, letterSpacing: "0.16em", wordBreak: "break-all", padding: "0 16px" }}>
-                  TX · {txHash}
+            {/* Brand totem — decorative, non-interactive */}
+            <div style={{
+              background: `linear-gradient(135deg, ${T.gold1} 0%, ${T.gold3} 55%, ${T.gold4} 100%)`,
+              color: "#000", padding: 24, marginBottom: 20,
+              position: "relative", overflow: "hidden", aspectRatio: "1.65",
+              boxShadow: "0 20px 50px rgba(212,175,55,0.22)",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontFamily: T.fontSerif, fontWeight: 700, letterSpacing: "0.3em", fontSize: 14 }}>ACE</div>
+                  <div style={{ fontFamily: T.fontDisplay, fontSize: 9, letterSpacing: "0.22em", marginTop: 2 }}>RESEARCH CARD</div>
                 </div>
-                <div style={{ fontSize: 13, color: subtle, marginTop: 20, lineHeight: 1.7 }}>
-                  COA and tracking link will arrive within 2h.<br />Thank you for ordering from Ace.
+                <span style={{ fontFamily: T.fontSerif, fontSize: 24, fontWeight: 700 }}>♠</span>
+              </div>
+              <div style={{ fontFamily: T.fontDisplay, fontSize: 20, letterSpacing: "0.18em", marginTop: 42, fontWeight: 600 }}>
+                •••• •••• •••• ••••
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 14 }}>
+                <div style={{ fontFamily: T.fontDisplay, fontSize: 10, letterSpacing: "0.22em", opacity: 0.85 }}>
+                  BTC · ETH · USDC · MORE
+                </div>
+                <div style={{ fontFamily: T.fontSerif, fontSize: 16, fontWeight: 700 }}>
+                  ${cartTotal.toFixed(2)}
                 </div>
               </div>
-            ) : checkoutMethod === "card" ? (
-              <>
-                {/* Brand totem — non-interactive. Real card capture happens on
-                    the Coinbase Commerce hosted checkout page after redirect. */}
-                <div style={{
-                  background: `linear-gradient(135deg, ${T.gold1} 0%, ${T.gold3} 55%, ${T.gold4} 100%)`,
-                  color: "#000", padding: 24, marginBottom: 20,
-                  position: "relative", overflow: "hidden", aspectRatio: "1.65",
-                  boxShadow: "0 20px 50px rgba(212,175,55,0.22)",
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div>
-                      <div style={{ fontFamily: T.fontSerif, fontWeight: 700, letterSpacing: "0.3em", fontSize: 14 }}>ACE</div>
-                      <div style={{ fontFamily: T.fontDisplay, fontSize: 9, letterSpacing: "0.22em", marginTop: 2 }}>RESEARCH CARD</div>
-                    </div>
-                    <span style={{ fontFamily: T.fontSerif, fontSize: 24, fontWeight: 700 }}>♠</span>
-                  </div>
-                  <div style={{ fontFamily: T.fontDisplay, fontSize: 20, letterSpacing: "0.18em", marginTop: 42, fontWeight: 600 }}>
-                    •••• •••• •••• ••••
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 14 }}>
-                    <div style={{ fontFamily: T.fontDisplay, fontSize: 10, letterSpacing: "0.22em", opacity: 0.85 }}>
-                      CARD · APPLE PAY · ACH
-                    </div>
-                    <div style={{ fontFamily: T.fontSerif, fontSize: 16, fontWeight: 700 }}>
-                      ${cartTotal.toFixed(2)}
-                    </div>
-                  </div>
-                  <div style={{
-                    position: "absolute", top: 0, width: "40%", height: "100%",
-                    background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)",
-                    animation: "ace-sheen 4s linear infinite",
-                  }} />
-                </div>
+              <div style={{
+                position: "absolute", top: 0, width: "40%", height: "100%",
+                background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)",
+                animation: "ace-sheen 4s linear infinite",
+              }} />
+            </div>
 
-                <div style={{ fontSize: 13, color: subtle, lineHeight: 1.7, marginBottom: 16 }}>
-                  Pay with card, Apple Pay, or bank transfer via secure
-                  Coinbase Commerce checkout. Funds settle to Ace as crypto —
-                  no chargebacks, no bank delays.
-                </div>
+            <div style={{ fontSize: 13, color: subtle, lineHeight: 1.7, marginBottom: 20 }}>
+              Secure Coinbase Commerce checkout — pay with Bitcoin, Ethereum,
+              USDC, and more via your Coinbase account. No wallet setup needed.
+              Funds settle to Ace as crypto; no chargebacks, no bank delays.
+            </div>
 
-                <button
-                  className="ace-btn-gold"
-                  style={{ width: "100%", padding: 18 }}
-                  disabled={commerceLoading || cart.length === 0}
-                  onClick={payWithCommerce}
-                >
-                  {commerceLoading
-                    ? "◌ STARTING CHECKOUT…"
-                    : `▸ Continue · $${cartTotal.toFixed(2)}`}
-                </button>
-                {commerceError && (
-                  <div style={{ fontFamily: T.fontDisplay, fontSize: 11, color: T.red, marginTop: 12, letterSpacing: "0.04em" }}>
-                    {commerceError}
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: 14, color: subtle, lineHeight: 1.7, marginBottom: 20 }}>
-                  Settle in ETH, direct wallet-to-wallet. Conversion happens at live rate at the moment of signing.
-                </div>
-                {!walletAddress ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    <button className="ace-btn-gold" style={{ width: "100%", padding: 16 }} onClick={connectCoinbase}>
-                      ▸ Coinbase Wallet
-                    </button>
-                    <button className="ace-btn-outline" style={{ width: "100%", padding: 16 }} onClick={connectMetaMask}>
-                      ▸ MetaMask
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ padding: 16, border: "1px dashed rgba(212,175,55,0.3)", marginBottom: 16 }}>
-                      <div style={{ fontFamily: T.fontDisplay, fontSize: 9, color: T.gold3, letterSpacing: "0.26em" }}>CONNECTED</div>
-                      <div style={{ fontFamily: T.fontDisplay, fontSize: 12, marginTop: 8, wordBreak: "break-all", color: lightMode ? T.ink5 : T.ink1 }}>
-                        {walletAddress}
-                      </div>
-                    </div>
-                    <button className="ace-btn-gold" style={{ width: "100%", padding: 18 }} disabled={paymentLoading} onClick={payWithWallet}>
-                      {paymentLoading ? "◌ AWAITING SIGNATURE…" : `▸ Pay $${cartTotal.toFixed(2)} in ETH`}
-                    </button>
-                  </>
-                )}
-                {walletError && (
-                  <div style={{ fontFamily: T.fontDisplay, fontSize: 11, color: T.red, marginTop: 12, letterSpacing: "0.04em" }}>
-                    {walletError}
-                  </div>
-                )}
-              </>
+            {/* Research attestation checkbox */}
+            <label style={{
+              display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20,
+              cursor: "pointer", padding: "14px 16px",
+              border: `1px solid ${researchAttested ? T.gold3 + "88" : "rgba(212,175,55,0.25)"}`,
+              background: researchAttested ? "rgba(212,175,55,0.06)" : "transparent",
+              transition: "border-color .2s, background .2s",
+            }}>
+              <input
+                type="checkbox"
+                checked={researchAttested}
+                onChange={(e) => setResearchAttested(e.target.checked)}
+                style={{ marginTop: 2, accentColor: T.gold3, width: 16, height: 16, flexShrink: 0, cursor: "pointer" }}
+              />
+              <span style={{ fontFamily: T.fontDisplay, fontSize: 10, letterSpacing: "0.12em", lineHeight: 1.65, color: researchAttested ? T.ink0 : subtle }}>
+                I confirm I am purchasing this product for legitimate research
+                purposes only and not for human or animal consumption.
+              </span>
+            </label>
+
+            <button
+              className="ace-btn-gold"
+              style={{ width: "100%", padding: 18, opacity: researchAttested && !commerceLoading ? 1 : 0.45, cursor: researchAttested ? "pointer" : "not-allowed" }}
+              disabled={commerceLoading || cart.length === 0 || !researchAttested}
+              onClick={payWithCommerce}
+            >
+              {commerceLoading
+                ? "◌ OPENING CHECKOUT…"
+                : `▸ Pay with Crypto · $${cartTotal.toFixed(2)}`}
+            </button>
+
+            {!researchAttested && (
+              <div style={{ fontFamily: T.fontDisplay, fontSize: 10, color: subtle, marginTop: 8, letterSpacing: "0.1em", textAlign: "center" }}>
+                Please confirm the research attestation above to continue.
+              </div>
             )}
 
-            <div style={{ marginTop: 20, fontFamily: T.fontDisplay, fontSize: 9, color: subtle, letterSpacing: "0.2em", textAlign: "center" }}>
+            {commerceError && (
+              <div style={{ fontFamily: T.fontDisplay, fontSize: 11, color: T.red, marginTop: 12, letterSpacing: "0.04em" }}>
+                {commerceError}
+              </div>
+            )}
+
+            {/* Accepted currencies note */}
+            <div style={{ marginTop: 16, fontFamily: T.fontDisplay, fontSize: 9, color: subtle, letterSpacing: "0.14em", lineHeight: 1.6, textAlign: "center" }}>
+              Accepts Bitcoin, Ethereum, USDC, and more — no wallet setup needed
+            </div>
+
+            <div style={{ marginTop: 12, fontFamily: T.fontDisplay, fontSize: 9, color: subtle, letterSpacing: "0.2em", textAlign: "center" }}>
               ◆ 256-BIT SSL · RESEARCH-USE ONLY
             </div>
           </div>
@@ -2087,7 +2031,7 @@ function CalcB({ T, lightMode }) {
         Reconstitution and Concentration
       </h2>
       <p style={{ fontSize: 14, color: subtle, lineHeight: 1.7, maxWidth: 640, marginBottom: 40 }}>
-        For research planning. Enter your vial mass, the volume of bacteriostatic water you'll add, and your target dose. We'll compute the draw on a standard insulin syringe.
+        For laboratory research planning. Enter your vial mass, the volume of bacteriostatic water you'll add, and your target sample volume. We'll compute the draw on a standard insulin syringe.
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.05fr 1fr", gap: 32, alignItems: "start" }}>
@@ -2127,8 +2071,8 @@ function CalcB({ T, lightMode }) {
             </div>
           </CalcRow>
 
-          {/* Target dose */}
-          <CalcRow T={T} label="TARGET DOSE" suffix="mcg" subtle={subtle}>
+          {/* Target sample */}
+          <CalcRow T={T} label="TARGET SAMPLE" suffix="mcg" subtle={subtle}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input
                 type="range"
@@ -2174,7 +2118,7 @@ function CalcB({ T, lightMode }) {
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: T.fontDisplay, fontSize: 9, letterSpacing: "0.24em", color: subtle }}>DOSES PER VIAL</div>
+              <div style={{ fontFamily: T.fontDisplay, fontSize: 9, letterSpacing: "0.24em", color: subtle }}>SAMPLES PER VIAL</div>
               <div style={{ fontFamily: T.fontSerif, fontSize: 34, fontWeight: 700, marginTop: 4, color: T.gold3 }}>
                 ≈ {totalDoses}
               </div>
@@ -2208,12 +2152,12 @@ function CalcB({ T, lightMode }) {
 
           {/* Compliance note */}
           <div style={{ marginTop: 24, padding: 16, border: "1px dashed rgba(212,175,55,0.25)", fontSize: 11, color: subtle, lineHeight: 1.7 }}>
-            ◆ Calculation provided for research planning only. Verify dose with your protocol. Not for human use. Store reconstituted vials at 2–8°C; use within 28 days.
+            ◆ Calculation provided for laboratory research planning only. Verify measurements with your protocol. Not for human or animal use. Store reconstituted vials at 2–8°C; use within 28 days.
           </div>
         </div>
       </div>
 
-      {/* Quick-cards: dose schedule */}
+      {/* Quick-cards: sample schedule */}
       <div style={{ marginTop: 56 }}>
         <SuitAnchor T={T} suit="♠" label="SCHEDULE PREVIEW" sub="based on your inputs" />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginTop: 12 }}>
