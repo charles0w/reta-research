@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { createClient } from "@supabase/supabase-js";
 
 const esc = (s) =>
   String(s ?? "")
@@ -140,6 +141,34 @@ export default async function handler(req, res) {
     </html>
   `;
 
+  // Insert order into Supabase
+  let orderId = null;
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
+    try {
+      const supabase = createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_KEY,
+        { auth: { persistSession: false } }
+      );
+      const { data, error } = await supabase
+        .from("orders")
+        .insert({
+          payment_method: "eth",
+          payment_ref: txHash,
+          status: "pending",
+          items: cart,
+          total_usd: Number(total),
+          shipping_info: shipping,
+        })
+        .select("id")
+        .single();
+      if (error) console.error("Supabase insert error:", error.message);
+      else orderId = data.id;
+    } catch (err) {
+      console.error("Supabase error:", err);
+    }
+  }
+
   try {
     await Promise.all([
       resend.emails.send({
@@ -155,9 +184,9 @@ export default async function handler(req, res) {
         html: customerHtml,
       }),
     ]);
-    res.json({ ok: true });
+    res.json({ ok: true, orderId });
   } catch (err) {
     console.error("Email send error:", err);
-    res.json({ ok: true, warned: true });
+    res.json({ ok: true, warned: true, orderId });
   }
 }
