@@ -41,7 +41,7 @@ export default async function handler(req, res) {
   const error = validateBody(req.body);
   if (error) return res.status(400).json({ error });
 
-  const { cart, shipping, txHash, total } = req.body;
+  const { cart, shipping, txHash, total, paymentMethod = "eth" } = req.body;
 
   if (!process.env.RESEND_API_KEY || !process.env.ORDER_EMAIL) {
     console.error("Missing RESEND_API_KEY or ORDER_EMAIL env vars");
@@ -153,7 +153,7 @@ export default async function handler(req, res) {
       const { data, error } = await supabase
         .from("orders")
         .insert({
-          payment_method: "eth",
+          payment_method: paymentMethod,
           payment_ref: txHash,
           status: "pending",
           items: cart,

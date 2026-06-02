@@ -4,6 +4,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import CoinbaseWalletSDK from "@coinbase/wallet-sdk";
 
 const RECIPIENT_ADDRESS = "0x74e9af21c6060328371b3813689b472132f89cbd";
+const USDC_CONTRACT   = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; // USDC on Ethereum mainnet
 const coinbaseWallet = new CoinbaseWalletSDK({ appName: "Ace Peptides" });
 const coinbaseProvider = coinbaseWallet.makeWeb3Provider();
 
@@ -421,6 +422,10 @@ export default function App() {
   // Legal modal
   const [legalModal, setLegalModal] = useState(null); // null | "terms" | "privacy"
 
+  // Checkout T&C
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showCheckoutTerms, setShowCheckoutTerms] = useState(false);
+
   // Calculator
   const [vialMg, setVialMg] = useState(10);
   const [diluentMl, setDiluentMl] = useState(2);
@@ -532,7 +537,36 @@ export default function App() {
       fetch("/api/send-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart, shipping: ship, txHash: tx, total: cartTotal }),
+        body: JSON.stringify({ cart, shipping: ship, txHash: tx, total: cartTotal, paymentMethod: "eth" }),
+      }).catch(() => {});
+    } catch (err) {
+      setWalletError(err.message || "Transaction failed. Please try again.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const payWithUSDC = async () => {
+    const provider = activeProvider.current;
+    if (!provider || !walletAddress) return;
+    setPaymentLoading(true);
+    setWalletError(null);
+    setTxHash(null);
+    try {
+      // Encode ERC-20 transfer(address,uint256) — USDC has 6 decimals
+      const usdcAmount  = BigInt(Math.round(cartTotal * 1e6));
+      const recipientHex = RECIPIENT_ADDRESS.slice(2).toLowerCase().padStart(64, "0");
+      const amountHex    = usdcAmount.toString(16).padStart(64, "0");
+      const data = `0xa9059cbb${recipientHex}${amountHex}`;
+      const tx = await provider.request({
+        method: "eth_sendTransaction",
+        params: [{ from: walletAddress, to: USDC_CONTRACT, data, value: "0x0" }],
+      });
+      setTxHash(tx);
+      fetch("/api/send-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cart, shipping: ship, txHash: tx, total: cartTotal, paymentMethod: "usdc" }),
       }).catch(() => {});
     } catch (err) {
       setWalletError(err.message || "Transaction failed. Please try again.");
@@ -1469,13 +1503,33 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Payment — only active once shipping is filled */}
-                {!shipFilled && (
-                  <div style={{ fontSize: 11, color: "#4A4A42", letterSpacing: "0.12em", textTransform: "uppercase", textAlign: "center", padding: "14px 0 22px" }}>
-                    Complete shipping information above to continue
+                {/* T&C checkbox */}
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "18px 0 10px" }}>
+                  <input
+                    type="checkbox" id="checkout-terms"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    style={{ marginTop: 3, accentColor: "#D4AF37", cursor: "pointer", flexShrink: 0 }}
+                  />
+                  <label htmlFor="checkout-terms" style={{ fontSize: 11, color: "#5A5A52", lineHeight: 1.7, cursor: "pointer" }}>
+                    I have read and agree to the{" "}
+                    <span
+                      onClick={(e) => { e.preventDefault(); setShowCheckoutTerms(true); }}
+                      style={{ color: "#D4AF37", textDecoration: "underline", cursor: "pointer" }}
+                    >
+                      Terms &amp; Conditions
+                    </span>
+                    {" "}and confirm this purchase is solely for legitimate laboratory research purposes.
+                  </label>
+                </div>
+
+                {/* Payment — only active once shipping + terms are done */}
+                {(!shipFilled || !termsAccepted) && (
+                  <div style={{ fontSize: 10, color: "#4A4A42", letterSpacing: "0.12em", textTransform: "uppercase", textAlign: "center", padding: "8px 0 20px" }}>
+                    {!shipFilled ? "Complete shipping information above to continue" : "Accept terms & conditions to continue"}
                   </div>
                 )}
-                <div className="wallet-box" style={{ opacity: shipFilled ? 1 : 0.35, pointerEvents: shipFilled ? "auto" : "none", transition: "opacity 0.3s" }}>
+                <div className="wallet-box" style={{ opacity: (shipFilled && termsAccepted) ? 1 : 0.35, pointerEvents: (shipFilled && termsAccepted) ? "auto" : "none", transition: "opacity 0.3s" }}>
                   <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", marginBottom: 12, color: "#D4AF37" }}>Pay with Crypto</div>
                   <div style={{ fontSize: 12, color: "#5A5A52", marginBottom: 20, lineHeight: 1.75 }}>
                     Connect your wallet to send ETH directly — instant settlement, no middlemen.
@@ -1489,9 +1543,17 @@ export default function App() {
                     <>
                       <div style={{ fontSize: 10, color: "#4A4A42", letterSpacing: "0.12em", textTransform: "uppercase" }}>Connected</div>
                       <div className="wallet-address">{walletAddress}</div>
-                      <button className="btn-gold" style={{ width: "100%", padding: 16, marginTop: 16 }} onClick={payWithWallet} disabled={paymentLoading}>
-                        {paymentLoading ? "Awaiting wallet…" : `Pay $${cartTotal.toFixed(2)} in ETH`}
-                      </button>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
+                        <button className="btn-gold" style={{ width: "100%", padding: 16 }} onClick={payWithUSDC} disabled={paymentLoading}>
+                          {paymentLoading ? "Awaiting wallet…" : `Pay $${cartTotal.toFixed(2)} in USDC`}
+                        </button>
+                        <button className="btn-outline-gold" style={{ width: "100%", padding: 14 }} onClick={payWithWallet} disabled={paymentLoading}>
+                          {paymentLoading ? "Awaiting wallet…" : `Pay $${cartTotal.toFixed(2)} in ETH`}
+                        </button>
+                      </div>
+                      <div style={{ fontSize: 9, color: "#3A3A32", letterSpacing: "0.10em", textAlign: "center", marginTop: 10 }}>
+                        USDC = no price fluctuation · ETH = live market rate
+                      </div>
                     </>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1540,6 +1602,28 @@ export default function App() {
 
       <Analytics />
       <SpeedInsights />
+
+      {/* Checkout T&C detail modal */}
+      {showCheckoutTerms && (
+        <div className="modal-overlay" onClick={() => setShowCheckoutTerms(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowCheckoutTerms(false)}>×</button>
+            <div className="modal-h">Terms &amp; Conditions of Sale</div>
+            <div className="modal-sub">Research Compounds — Liability Waiver</div>
+            <p style={{ fontSize: 10, color: "#4A4A42", lineHeight: 1.9, marginBottom: 16 }}>
+              BY COMPLETING THIS PURCHASE YOU ACKNOWLEDGE, REPRESENT, AND AGREE TO ALL OF THE FOLLOWING:
+            </p>
+            <p style={{ fontSize: 9, color: "#3A3A32", lineHeight: 2, letterSpacing: "0.01em" }}>
+              (i) All products sold by Ace Peptides are strictly for in-vitro laboratory research use only and are not intended, sold, or suitable for human or animal consumption, therapeutic use, or any clinical, diagnostic, or medical application whatsoever. (ii) You are a qualified researcher, licensed laboratory professional, or authorized institutional buyer of legal age in your jurisdiction and you possess the knowledge and facilities required for the safe handling of research-grade compounds. (iii) You have independently verified that the purchase, possession, handling, and intended use of these compounds is lawful in your jurisdiction and you assume sole and complete responsibility for compliance with all applicable federal, state, provincial, and local laws, regulations, and ordinances. (iv) You acknowledge that research compounds carry inherent risks, including but not limited to chemical exposure, improper handling, and unknown long-term effects, and that these risks are your sole responsibility. (v) ACE PEPTIDES, ITS PRINCIPALS, OFFICERS, EMPLOYEES, AGENTS, AFFILIATES, SUCCESSORS, AND ASSIGNS EXPRESSLY DISCLAIM, TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, ALL LIABILITY OF ANY KIND — INCLUDING WITHOUT LIMITATION ANY LIABILITY FOR PERSONAL INJURY, DEATH, PROPERTY DAMAGE, FINANCIAL LOSS, OR ANY OTHER DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, PUNITIVE, OR EXEMPLARY DAMAGES — ARISING FROM OR IN ANY WAY RELATED TO THE PURCHASE, HANDLING, STORAGE, RECONSTITUTION, ADMINISTRATION, INJECTION, INGESTION, OR ANY OTHER USE OF ANY PRODUCT PURCHASED FROM THIS SITE, WHETHER SUCH USE IS FOR ITS INTENDED RESEARCH PURPOSE OR OTHERWISE. (vi) You expressly waive any and all claims, actions, demands, and causes of action against Ace Peptides and its related parties arising out of or related to your purchase or any subsequent use of the products. (vii) This waiver and disclaimer shall be enforceable to the maximum extent permitted by law. If any provision is held unenforceable, the remaining provisions shall remain in full force and effect. (viii) By checking the acceptance box and completing your purchase, you confirm that you have read, understood, and voluntarily agreed to be bound by these terms without duress or undue influence.
+            </p>
+            <div style={{ marginTop: 22, display: "flex", justifyContent: "flex-end" }}>
+              <button className="btn-gold" style={{ padding: "10px 28px" }} onClick={() => { setTermsAccepted(true); setShowCheckoutTerms(false); }}>
+                I Agree
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Legal modal */}
       {legalModal && (
