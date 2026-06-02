@@ -414,6 +414,13 @@ export default function App() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const activeProvider = useRef(null);
 
+  // Shipping form
+  const [ship, setShip] = useState({ name: "", email: "", address: "", city: "", state: "", zip: "", country: "US" });
+  const shipFilled = ["name", "email", "address", "city", "state", "zip"].every((k) => ship[k].trim() !== "");
+
+  // Legal modal
+  const [legalModal, setLegalModal] = useState(null); // null | "terms" | "privacy"
+
   // Calculator
   const [vialMg, setVialMg] = useState(10);
   const [diluentMl, setDiluentMl] = useState(2);
@@ -521,6 +528,12 @@ export default function App() {
         params: [{ from: walletAddress, to: RECIPIENT_ADDRESS, value: hexValue }],
       });
       setTxHash(tx);
+      // Fire-and-forget order email — don't block on it
+      fetch("/api/send-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cart, shipping: ship, txHash: tx, total: cartTotal }),
+      }).catch(() => {});
     } catch (err) {
       setWalletError(err.message || "Transaction failed. Please try again.");
     } finally {
@@ -700,6 +713,47 @@ export default function App() {
         .calc-input::-webkit-outer-spin-button,
         .calc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .calc-input:focus { border-bottom-color: rgba(212,175,55,0.65); }
+        .calc-input::placeholder { color: #2A2A22; }
+        .ship-input {
+          width: 100%; background: transparent; border: none;
+          border-bottom: 1px solid rgba(212,175,55,0.22);
+          color: #F0EFE8; padding: 10px 0;
+          font-family: 'Montserrat', sans-serif; font-size: 14px;
+          outline: none; transition: border-color 0.3s;
+        }
+        .ship-input:focus { border-bottom-color: rgba(212,175,55,0.65); }
+        .ship-input::placeholder { color: #2A2A22; }
+
+        .ship-addr-grid {
+          display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 20px;
+        }
+
+        .modal-overlay {
+          position: fixed; inset: 0; z-index: 500;
+          background: rgba(0,0,0,0.88); backdrop-filter: blur(6px);
+          display: flex; align-items: center; justify-content: center; padding: 24px;
+        }
+        .modal-box {
+          background: #0D0D0D; border: 1px solid rgba(212,175,55,0.25);
+          max-width: 580px; width: 100%; max-height: 82vh; overflow-y: auto;
+          padding: 40px; position: relative;
+        }
+        .modal-close {
+          position: absolute; top: 18px; right: 20px;
+          background: none; border: none; color: #4A4A42; font-size: 22px;
+          cursor: pointer; line-height: 1; padding: 4px;
+          transition: color .2s;
+        }
+        .modal-close:hover { color: #D4AF37; }
+        .modal-h { font-family: 'Cinzel', serif; font-size: 22px; font-weight: 400; letter-spacing: .06em; color: #F0EFE8; margin-bottom: 6px; }
+        .modal-sub { font-size: 11px; color: #3A3A32; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 28px; }
+        .modal-section { font-size: 10px; color: #D4AF37; letter-spacing: .18em; text-transform: uppercase; font-weight: 700; margin: 22px 0 8px; }
+        .modal-p { font-size: 13px; color: #5A5A52; line-height: 1.85; margin-bottom: 0; }
+
+        @media (max-width: 720px) {
+          .ship-addr-grid { grid-template-columns: 1fr; }
+          .modal-box { padding: 28px 22px; }
+        }
         .calc-helper {
           font-size: 10px; color: #4A4A42; margin-top: 6px;
           line-height: 1.6; font-family: 'Montserrat', sans-serif;
@@ -1327,7 +1381,7 @@ export default function App() {
                 </div>
 
                 <div style={{ marginTop: 18, fontSize: 10, color: "#4A4A42", letterSpacing: "0.04em", lineHeight: 1.7 }}>
-                  First shipment ships within 48 hours. Future shipments auto-renew.
+                  First shipment ships within 48 hours. Subscriptions are processed as individual discounted orders — we'll contact you before each renewal.
                 </div>
               </div>
             ) : (
@@ -1380,7 +1434,48 @@ export default function App() {
                   </span>
                 </div>
 
-                <div className="wallet-box">
+                {/* Shipping information */}
+                <div style={{ marginBottom: 32, padding: "28px 28px 24px", border: "1px solid rgba(212,175,55,0.18)", background: "rgba(212,175,55,0.02)" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", marginBottom: 22, color: "#D4AF37" }}>
+                    Shipping Information
+                  </div>
+                  <div className="responsive-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px 28px", marginBottom: 20 }}>
+                    <div>
+                      <label className="calc-label">Full Name</label>
+                      <input className="ship-input" type="text" placeholder="Jane Smith" value={ship.name} onChange={(e) => setShip((s) => ({ ...s, name: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="calc-label">Email</label>
+                      <input className="ship-input" type="email" placeholder="jane@example.com" value={ship.email} onChange={(e) => setShip((s) => ({ ...s, email: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 20 }}>
+                    <label className="calc-label">Street Address</label>
+                    <input className="ship-input" type="text" placeholder="123 Main St, Apt 4B" value={ship.address} onChange={(e) => setShip((s) => ({ ...s, address: e.target.value }))} />
+                  </div>
+                  <div className="ship-addr-grid">
+                    <div>
+                      <label className="calc-label">City</label>
+                      <input className="ship-input" type="text" value={ship.city} onChange={(e) => setShip((s) => ({ ...s, city: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="calc-label">State</label>
+                      <input className="ship-input" type="text" placeholder="CA" maxLength={2} value={ship.state} onChange={(e) => setShip((s) => ({ ...s, state: e.target.value.toUpperCase() }))} />
+                    </div>
+                    <div>
+                      <label className="calc-label">ZIP</label>
+                      <input className="ship-input" type="text" value={ship.zip} onChange={(e) => setShip((s) => ({ ...s, zip: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment — only active once shipping is filled */}
+                {!shipFilled && (
+                  <div style={{ fontSize: 11, color: "#4A4A42", letterSpacing: "0.12em", textTransform: "uppercase", textAlign: "center", padding: "14px 0 22px" }}>
+                    Complete shipping information above to continue
+                  </div>
+                )}
+                <div className="wallet-box" style={{ opacity: shipFilled ? 1 : 0.35, pointerEvents: shipFilled ? "auto" : "none", transition: "opacity 0.3s" }}>
                   <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", marginBottom: 12, color: "#D4AF37" }}>Pay with Crypto</div>
                   <div style={{ fontSize: 12, color: "#5A5A52", marginBottom: 20, lineHeight: 1.75 }}>
                     Connect your wallet to send ETH directly — instant settlement, no middlemen.
@@ -1425,11 +1520,83 @@ export default function App() {
       <div className="divider-gold" />
       <footer className="footer-bar" style={{ padding: "26px 56px", display: "flex", justifyContent: "space-between", fontSize: 9, color: "#2A2A22", letterSpacing: "0.1em", textTransform: "uppercase" }}>
         <span>© 2026 Ace Peptides — All products for laboratory research use only.</span>
-        <span>Terms · Privacy · Contact</span>
+        <span style={{ display: "flex", gap: 14, alignItems: "center" }}>
+          {[["Terms", "terms"], ["Privacy", "privacy"]].map(([label, key]) => (
+            <button key={key} onClick={() => setLegalModal(key)}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "#2A2A22", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "'Montserrat', sans-serif", transition: "color .2s", padding: 0 }}
+              onMouseEnter={(e) => (e.target.style.color = "#D4AF37")}
+              onMouseLeave={(e) => (e.target.style.color = "#2A2A22")}>
+              {label}
+            </button>
+          ))}
+          <span style={{ color: "#3A3A32" }}>·</span>
+          <a href="mailto:support@ace-peptides.com" style={{ color: "#2A2A22", textDecoration: "none", transition: "color .2s", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase" }}
+            onMouseEnter={(e) => (e.target.style.color = "#D4AF37")}
+            onMouseLeave={(e) => (e.target.style.color = "#2A2A22")}>
+            Contact
+          </a>
+        </span>
       </footer>
 
       <Analytics />
       <SpeedInsights />
+
+      {/* Legal modal */}
+      {legalModal && (
+        <div className="modal-overlay" onClick={() => setLegalModal(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setLegalModal(null)}>×</button>
+
+            {legalModal === "terms" ? (
+              <>
+                <div className="modal-h">Terms of Use</div>
+                <div className="modal-sub">Effective January 1, 2026</div>
+
+                <div className="modal-section">Research Use Only</div>
+                <p className="modal-p">All products sold by Ace Peptides are intended strictly for in-vitro laboratory research purposes only. They are not intended for human or animal consumption, nor for use in diagnostic, therapeutic, or any clinical applications. By purchasing, you confirm that you are a qualified researcher, academic institution, or licensed laboratory.</p>
+
+                <div className="modal-section">Eligibility</div>
+                <p className="modal-p">You must be 18 years of age or older and legally permitted to purchase research chemicals in your jurisdiction. It is your responsibility to ensure compliance with all applicable local, state, and federal laws.</p>
+
+                <div className="modal-section">Payment</div>
+                <p className="modal-p">All payments are made in ETH via your connected wallet. Transactions are final once broadcast to the blockchain. Exchange rate is calculated at time of checkout using live market data.</p>
+
+                <div className="modal-section">Shipping & Fulfillment</div>
+                <p className="modal-p">Orders are processed and shipped within 1–2 business days. We ship discreetly. Risk of loss passes to the buyer upon delivery to the carrier. We are not responsible for packages seized by customs in jurisdictions where these compounds are restricted.</p>
+
+                <div className="modal-section">Returns</div>
+                <p className="modal-p">Unopened, undamaged items may be returned within 30 days of delivery for a refund minus shipping costs. Contact us before returning any item. Opened vials cannot be returned due to the nature of research compounds.</p>
+
+                <div className="modal-section">Disclaimer</div>
+                <p className="modal-p">Ace Peptides makes no representations regarding the fitness of products for any particular purpose. All information provided is for informational purposes only and does not constitute medical or scientific advice.</p>
+              </>
+            ) : (
+              <>
+                <div className="modal-h">Privacy Policy</div>
+                <div className="modal-sub">Effective January 1, 2026</div>
+
+                <div className="modal-section">Information We Collect</div>
+                <p className="modal-p">When you place an order, we collect your name, email address, and shipping address solely for the purpose of fulfilling your order. We do not collect payment card data — payments are processed directly on the Ethereum blockchain via your own wallet.</p>
+
+                <div className="modal-section">How We Use Your Information</div>
+                <p className="modal-p">Your information is used exclusively to process and ship your order and to send you order confirmation and status emails. We do not use it for marketing without your explicit consent.</p>
+
+                <div className="modal-section">Data Sharing</div>
+                <p className="modal-p">We do not sell, rent, or share your personal information with third parties, except as required to fulfill your shipment (e.g., carrier handoff) or as required by law.</p>
+
+                <div className="modal-section">Blockchain Transactions</div>
+                <p className="modal-p">ETH transactions are recorded on the public Ethereum blockchain. Your wallet address and transaction amount are publicly visible on-chain. We have no control over this data.</p>
+
+                <div className="modal-section">Data Retention</div>
+                <p className="modal-p">Order records are retained for a minimum of 3 years for legal and accounting purposes. You may request deletion of your personal data (name, email, address) by contacting us, subject to legal retention requirements.</p>
+
+                <div className="modal-section">Contact</div>
+                <p className="modal-p">For any privacy-related inquiries, contact us at support@ace-peptides.com.</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
