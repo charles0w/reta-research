@@ -426,6 +426,9 @@ export default function App() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showCheckoutTerms, setShowCheckoutTerms] = useState(false);
 
+  // Post-payment success
+  const [paid, setPaid] = useState(false);
+
   // Calculator
   const [vialMg, setVialMg] = useState(10);
   const [diluentMl, setDiluentMl] = useState(2);
@@ -533,7 +536,8 @@ export default function App() {
         params: [{ from: walletAddress, to: RECIPIENT_ADDRESS, value: hexValue }],
       });
       setTxHash(tx);
-      // Fire-and-forget order email — don't block on it
+      setPaid(true);
+      setCart([]);
       fetch("/api/send-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -553,8 +557,15 @@ export default function App() {
     setWalletError(null);
     setTxHash(null);
     try {
+      // Require Ethereum mainnet — USDC contract is chain-specific
+      const chainId = await provider.request({ method: "eth_chainId" });
+      if (chainId !== "0x1") {
+        setWalletError("USDC requires Ethereum mainnet. Please switch your wallet network to Ethereum and try again.");
+        setPaymentLoading(false);
+        return;
+      }
       // Encode ERC-20 transfer(address,uint256) — USDC has 6 decimals
-      const usdcAmount  = BigInt(Math.round(cartTotal * 1e6));
+      const usdcAmount   = BigInt(Math.round(cartTotal * 1e6));
       const recipientHex = RECIPIENT_ADDRESS.slice(2).toLowerCase().padStart(64, "0");
       const amountHex    = usdcAmount.toString(16).padStart(64, "0");
       const data = `0xa9059cbb${recipientHex}${amountHex}`;
@@ -563,6 +574,8 @@ export default function App() {
         params: [{ from: walletAddress, to: USDC_CONTRACT, data, value: "0x0" }],
       });
       setTxHash(tx);
+      setPaid(true);
+      setCart([]);
       fetch("/api/send-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1436,7 +1449,24 @@ export default function App() {
             <div className="section-eyebrow">Order</div>
             <h2 className="section-h2" style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 52 }}>Your Cart</h2>
 
-            {cart.length === 0 ? (
+            {paid ? (
+              <div className="empty-cart" style={{ textAlign: "center", padding: "72px 0" }}>
+                <div className="gold-text" style={{ fontFamily: "'Cinzel', serif", fontSize: 44, marginBottom: 16 }}>◈</div>
+                <h3 style={{ fontFamily: "'Cinzel', serif", fontSize: 22, fontWeight: 400, letterSpacing: "0.08em", marginBottom: 14 }}>Order Received</h3>
+                <p style={{ fontSize: 13, color: "#5A5A52", lineHeight: 1.8, marginBottom: 8, maxWidth: 400, margin: "0 auto 10px" }}>
+                  Payment sent. We'll ship to <strong style={{ color: "#F0EFE8" }}>{ship.name}</strong> within 1–2 business days.
+                </p>
+                <p style={{ fontSize: 12, color: "#4A4A42", marginBottom: 24 }}>
+                  Confirmation sent to {ship.email}.
+                </p>
+                <div style={{ fontFamily: "monospace", fontSize: 10, color: "#3A3A32", wordBreak: "break-all", maxWidth: 480, margin: "0 auto 32px", padding: "12px 16px", border: "1px solid rgba(212,175,55,0.1)" }}>
+                  Tx: {txHash}
+                </div>
+                <button className="btn-outline-gold" onClick={() => { setPaid(false); setTxHash(null); setSection("products"); }}>
+                  Continue Shopping
+                </button>
+              </div>
+            ) : cart.length === 0 ? (
               <div className="empty-cart" style={{ textAlign: "center", padding: "80px 0" }}>
                 <div style={{ fontSize: 36, marginBottom: 20, opacity: 0.2, color: "#D4AF37" }}>◈</div>
                 <p style={{ fontSize: 13, marginBottom: 28, color: "#4A4A42" }}>Your cart is empty.</p>
@@ -1532,7 +1562,7 @@ export default function App() {
                 <div className="wallet-box" style={{ opacity: (shipFilled && termsAccepted) ? 1 : 0.35, pointerEvents: (shipFilled && termsAccepted) ? "auto" : "none", transition: "opacity 0.3s" }}>
                   <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", marginBottom: 12, color: "#D4AF37" }}>Pay with Crypto</div>
                   <div style={{ fontSize: 12, color: "#5A5A52", marginBottom: 20, lineHeight: 1.75 }}>
-                    Connect your wallet to send ETH directly — instant settlement, no middlemen.
+                    Connect your wallet to pay in USDC (stablecoin) or ETH — instant settlement, no middlemen.
                   </div>
                   {txHash ? (
                     <>
