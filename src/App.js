@@ -11,7 +11,7 @@ const coinbaseProvider = coinbaseWallet.makeWeb3Provider();
 const products = [
   { id: 1, name: "Retatrutide 5mg",  purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 50.00,  stock: true },
   { id: 2, name: "Retatrutide 10mg", purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 85.00,  stock: true },
-  { id: 3, name: "Retatrutide 15mg", purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 100.00, stock: true },
+  { id: 3, name: "Retatrutide 15mg", purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 100.00, stock: "low" },
 ];
 
 const researchFindings = [
@@ -194,6 +194,11 @@ function CardSpread({ products, onAdd }) {
               <div style={{ fontSize: 9, color: "#3A3A32", letterSpacing: "0.10em", textTransform: "uppercase", marginTop: 3, fontFamily: "'Montserrat', sans-serif" }}>
                 {p.form}
               </div>
+              {p.stock === "low" && (
+                <div style={{ marginTop: 8, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "#B87333", fontWeight: 700, fontFamily: "'Montserrat', sans-serif" }}>
+                  ⚠ Low Stock
+                </div>
+              )}
             </div>
 
             <button className="btn-gold" style={{ marginTop: 4, zIndex: 1 }} onClick={() => onAdd(p)}>
@@ -287,6 +292,11 @@ function CardSpread({ products, onAdd }) {
                 <div style={{ fontSize: 9, color: "#3A3A32", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 3, fontFamily: "'Montserrat', sans-serif" }}>
                   {p.form}
                 </div>
+                {p.stock === "low" && (
+                  <div style={{ marginTop: 8, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "#B87333", fontWeight: 700, fontFamily: "'Montserrat', sans-serif" }}>
+                    ⚠ Low Stock
+                  </div>
+                )}
               </div>
               <div style={{
                 marginTop: 8,
@@ -1101,6 +1111,11 @@ export default function App() {
                   }}>
                     ${p.price.toFixed(2)}
                   </div>
+                  {p.stock === "low" && (
+                    <div style={{ marginTop: 8, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "#B87333", fontWeight: 700, fontFamily: "'Montserrat', sans-serif" }}>
+                      ⚠ Low Stock
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
