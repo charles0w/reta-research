@@ -41,7 +41,7 @@ export default async function handler(req, res) {
   const error = validateBody(req.body);
   if (error) return res.status(400).json({ error });
 
-  const { cart, shipping, txHash, total, paymentMethod = "eth" } = req.body;
+  const { cart, shipping, txHash, total, paymentMethod = "eth", promoCode } = req.body;
 
   if (!process.env.RESEND_API_KEY || !process.env.ORDER_EMAIL) {
     console.error("Missing RESEND_API_KEY or ORDER_EMAIL env vars");
@@ -164,6 +164,41 @@ export default async function handler(req, res) {
         .single();
       if (error) console.error("Supabase insert error:", error.message);
       else orderId = data.id;
+
+      // Consume affiliate code (decrement uses_remaining by 1)
+      if (promoCode) {
+        const { data: ac } = await supabase
+          .from("affiliate_codes")
+          .select("id, uses_remaining")
+          .eq("code", promoCode.toUpperCase().trim())
+          .single();
+        if (ac) {
+          const newUses = Math.max(0, ac.uses_remaining - 1);
+          await supabase
+            .from("affiliate_codes")
+            .update({ uses_remaining: newUses, is_active: newUses > 0 })
+            .eq("id", ac.id);
+        }
+      }
+
+      // Decrement stock quantity for each product ordered
+      for (const item of cart) {
+        const productId = typeof item.id === "number" ? item.id : null;
+        if (!productId) continue; // skip subscription items
+        const qty = parseInt(item.qty) || 1;
+        const { data: stock } = await supabase
+          .from("product_stock")
+          .select("quantity")
+          .eq("product_id", productId)
+          .single();
+        if (stock) {
+          const newQty = Math.max(0, (stock.quantity || 0) - qty);
+          await supabase
+            .from("product_stock")
+            .update({ quantity: newQty })
+            .eq("product_id", productId);
+        }
+      }
     } catch (err) {
       console.error("Supabase error:", err);
     }

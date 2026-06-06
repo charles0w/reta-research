@@ -1,0 +1,34 @@
+- generic [ref=e3]:
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12]: ACE PEPTIDES ADMIN
+      - generic [ref=e13]:
+        - button "↻ Refresh" [ref=e14] [cursor=pointer]
+        - button "Sign Out" [ref=e15] [cursor=pointer]
+    - generic [ref=e16]:
+      - button "Orders" [ref=e17] [cursor=pointer]
+      - button "Customers" [ref=e18] [cursor=pointer]
+      - button "Inventory" [active] [ref=e19] [cursor=pointer]
+      - button "Subscribers" [ref=e20] [cursor=pointer]
+      - button "Analytics" [ref=e21] [cursor=pointer]
+  - generic [ref=e58]:
+    - generic [ref=e59]:
+      - generic [ref=e60]:
+        - generic [ref=e61]: In Stock
+        - generic [ref=e62]:
+          - button "In Stock" [disabled] [ref=e63]
+          - button "Low Stock" [ref=e64] [cursor=pointer]
+          - button "Out of Stock" [ref=e65] [cursor=pointer]
+      - generic [ref=e66]:
+        - generic [ref=e67]: In Stock
+        - generic [ref=e68]:
+          - button "In Stock" [disabled] [ref=e69]
+          - button "Low Stock" [ref=e70] [cursor=pointer]
+          - button "Out of Stock" [ref=e71] [cursor=pointer]
+      - generic [ref=e72]:
+        - generic [ref=e73]: Low Stock
+        - generic [ref=e74]:
+          - button "In Stock" [ref=e75] [cursor=pointer]
+          - button "Low Stock" [disabled] [ref=e76]
+          - button "Out of Stock" [ref=e77] [cursor=pointer]
+    - generic [ref=e78]: Changes reflect on the store within 30 seconds.

@@ -1,0 +1,100 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e7] [cursor=pointer]:
+      - generic [ref=e8]: ACE
+      - generic [ref=e9]: PEPTIDES
+    - navigation [ref=e10]:
+      - button "Products" [ref=e11] [cursor=pointer]
+      - button "Research" [ref=e12] [cursor=pointer]
+      - button "Calculator" [ref=e13] [cursor=pointer]
+      - button "FAQ" [ref=e14] [cursor=pointer]
+      - button "Subscribe" [ref=e15] [cursor=pointer]
+      - button "Cart" [ref=e16] [cursor=pointer]
+  - main [ref=e18]:
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - generic [ref=e23]: ACE
+        - generic [ref=e24]: PEPTIDES
+        - generic [ref=e25]:
+          - generic [ref=e26]: Precision
+          - generic [ref=e27]: ·
+          - generic [ref=e28]: Performance
+          - generic [ref=e29]: ·
+          - generic [ref=e30]: Superiority
+      - generic [ref=e32]:
+        - generic [ref=e33]: Research Compounds
+        - heading "Retatrutide" [level=2] [ref=e34]
+        - paragraph [ref=e35]: HPLC-verified ≥99% purity · Lyophilized Powder · For in-vitro and laboratory research only
+      - generic [ref=e36] [cursor=pointer]:
+        - generic [ref=e37]:
+          - generic [ref=e38]:
+            - generic [ref=e39]: A
+            - generic [ref=e40]: ♠
+          - generic [ref=e41]:
+            - generic [ref=e43]:
+              - generic [ref=e44]: Retatrutide 5mg
+              - generic [ref=e45]: $50.00
+              - generic [ref=e46]: ≥99.1% purity
+              - generic [ref=e47]: Lyophilized Powder
+            - generic [ref=e48]: — view —
+          - generic [ref=e49]:
+            - generic [ref=e50]: A
+            - generic [ref=e51]: ♠
+        - generic [ref=e52]:
+          - generic [ref=e53]:
+            - generic [ref=e54]: A
+            - generic [ref=e55]: ♠
+          - generic [ref=e56]:
+            - generic [ref=e58]:
+              - generic [ref=e59]: Retatrutide 10mg
+              - generic [ref=e60]: $85.00
+              - generic [ref=e61]: ≥99.1% purity
+              - generic [ref=e62]: Lyophilized Powder
+            - generic [ref=e63]: — view —
+          - generic [ref=e64]:
+            - generic [ref=e65]: A
+            - generic [ref=e66]: ♠
+        - generic [ref=e67]:
+          - generic [ref=e68]:
+            - generic [ref=e69]: A
+            - generic [ref=e70]: ♠
+          - generic [ref=e71]:
+            - generic [ref=e73]:
+              - generic [ref=e74]: Retatrutide 15mg
+              - generic [ref=e75]: $100.00
+              - generic [ref=e76]: ≥99.1% purity
+              - generic [ref=e77]: Lyophilized Powder
+              - generic [ref=e78]: ⚠ Low Stock
+            - generic [ref=e79]: — view —
+          - generic [ref=e80]:
+            - generic [ref=e81]: A
+            - generic [ref=e82]: ♠
+        - generic: Hover to explore
+      - generic [ref=e84]:
+        - generic [ref=e85]:
+          - generic [ref=e86]: Retatrutide 5mg
+          - generic [ref=e87]: CAS 2381089-83-2
+          - generic [ref=e88]: Lyophilized Powder
+          - generic [ref=e89]: $50.00
+        - generic [ref=e90]:
+          - generic [ref=e91]: Retatrutide 10mg
+          - generic [ref=e92]: CAS 2381089-83-2
+          - generic [ref=e93]: Lyophilized Powder
+          - generic [ref=e94]: $85.00
+        - generic [ref=e95]:
+          - generic [ref=e96]: Retatrutide 15mg
+          - generic [ref=e97]: CAS 2381089-83-2
+          - generic [ref=e98]: Lyophilized Powder
+          - generic [ref=e99]: $100.00
+          - generic [ref=e100]: ⚠ Low Stock
+      - generic [ref=e101]:
+        - strong [ref=e102]: "Disclaimer:"
+        - text: This product is intended strictly for laboratory research purposes only. Not for human or animal consumption. Not for use in diagnostic or therapeutic applications.
+  - contentinfo [ref=e104]:
+    - generic [ref=e105]: © 2026 Ace Peptides — All products for laboratory research use only.
+    - generic [ref=e106]:
+      - button "Terms" [ref=e107] [cursor=pointer]
+      - button "Privacy" [ref=e108] [cursor=pointer]
+      - generic [ref=e109]: ·
+      - link "Contact" [ref=e110] [cursor=pointer]:
+        - /url: mailto:support@ace-peptides.com

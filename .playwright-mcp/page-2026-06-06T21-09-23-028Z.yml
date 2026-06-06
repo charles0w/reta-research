@@ -1,0 +1,18 @@
+- generic [ref=e3]:
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12]: ACE PEPTIDES ADMIN
+      - generic [ref=e13]:
+        - button "↻ Refresh" [ref=e14] [cursor=pointer]
+        - button "Sign Out" [ref=e15] [cursor=pointer]
+    - generic [ref=e16]:
+      - button "Orders" [ref=e17] [cursor=pointer]
+      - button "Customers" [ref=e18] [cursor=pointer]
+      - button "Inventory" [ref=e19] [cursor=pointer]
+      - button "Subscribers" [active] [ref=e20] [cursor=pointer]
+      - button "Analytics" [ref=e21] [cursor=pointer]
+  - generic [ref=e79]:
+    - generic [ref=e81]:
+      - generic [ref=e82]: Total Subscribers
+      - generic [ref=e83]: "0"
+    - generic [ref=e84]: No subscribers yet.

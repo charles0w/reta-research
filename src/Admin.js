@@ -15,7 +15,7 @@ const STOCK = {
   out_of_stock: { color: "#B04040", bg: "rgba(176,64,64,0.15)",   label: "Out of Stock" },
 };
 
-const TABS = ["orders", "customers", "inventory", "subscribers", "analytics"];
+const TABS = ["orders", "customers", "inventory", "affiliates", "subscribers", "analytics"];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -51,6 +51,12 @@ const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght
 const CSS = `
 * { margin:0; padding:0; box-sizing:border-box; }
 body { background:#080808; }
+.btn-gold {
+  background: linear-gradient(135deg,#9A7A1A,#D4AF37,#F5D07A); color:#000;
+  border:none; cursor:pointer; transition:opacity .2s;
+}
+.btn-gold:hover:not(:disabled) { opacity:0.88; }
+.btn-gold:disabled { opacity:.4; cursor:default; }
 .admin-btn {
   border:1px solid rgba(212,175,55,0.35); background:none; color:#D4AF37;
   padding:6px 14px; font-size:9px; letter-spacing:.14em; text-transform:uppercase;
@@ -346,31 +352,82 @@ function CustomersTab({ customers }) {
 
 function InventoryTab({ inventory, pw, updating, setUpdating, setInventory, loadTab }) {
   const products = inventory || [];
+  const [qtyInputs, setQtyInputs] = useState({});
+  const [savingQty, setSavingQty] = useState(null);
 
-  const changeStock = async (product_id, stock_status) => {
-    setUpdating(product_id);
+  // Sync input fields when inventory loads
+  useState(() => {
+    const map = {};
+    for (const p of products) map[p.product_id] = p.quantity ?? 0;
+    setQtyInputs(map);
+  }, [inventory]);
+
+  const postInventory = async (body) => {
     await fetch("/api/admin/inventory", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: pw, product_id, stock_status }),
+      body: JSON.stringify({ password: pw, ...body }),
     });
     const result = await loadTab("inventory", pw);
     if (result) setInventory(result);
+  };
+
+  const changeStock = async (product_id, stock_status) => {
+    setUpdating(product_id);
+    await postInventory({ product_id, stock_status });
     setUpdating(null);
+  };
+
+  const saveQuantity = async (product_id) => {
+    setSavingQty(product_id);
+    const qty = Math.max(0, parseInt(qtyInputs[product_id]) || 0);
+    await postInventory({ product_id, quantity: qty });
+    setSavingQty(null);
   };
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginBottom: 24 }}>
         {products.map((prod) => {
           const s = STOCK[prod.stock_status] || STOCK.out_of_stock;
           return (
             <div key={prod.product_id} style={{ background: "#0D0D0D", border: "1px solid rgba(212,175,55,0.12)", padding: "28px 24px" }}>
-              <div className="cinzel" style={{ fontSize: 15, marginBottom: 6 }}>{prod.product_name || prod.name}</div>
-              {prod.sku && <div style={{ fontSize: 9, color: "#3A3A32", letterSpacing: ".16em", marginBottom: 16 }}>{prod.sku}</div>}
-              <div style={{ marginBottom: 20 }}>
-                <span style={{ fontSize: 8, letterSpacing: ".14em", textTransform: "uppercase", fontWeight: 700, padding: "4px 10px", background: s.bg, color: s.color }}>{s.label}</span>
+              {/* Product name + status badge */}
+              <div className="cinzel" style={{ fontSize: 15, marginBottom: 10 }}>{prod.product_name || prod.name}</div>
+              <span style={{ fontSize: 8, letterSpacing: ".14em", textTransform: "uppercase", fontWeight: 700, padding: "4px 10px", background: s.bg, color: s.color }}>{s.label}</span>
+
+              {/* Big quantity counter */}
+              <div style={{ margin: "22px 0 6px", display: "flex", alignItems: "baseline", gap: 8 }}>
+                <div className="cinzel gold" style={{ fontSize: 56, lineHeight: 1 }}>{prod.quantity ?? 0}</div>
+                <div style={{ fontSize: 9, color: "#4A4A42", letterSpacing: ".14em", textTransform: "uppercase" }}>units</div>
               </div>
+              <div style={{ fontSize: 9, color: "#3A3A32", letterSpacing: ".10em", marginBottom: 18 }}>
+                decrements automatically on each order
+              </div>
+
+              {/* Set quantity input */}
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 22, paddingBottom: 22, borderBottom: "1px solid rgba(212,175,55,0.08)" }}>
+                <input
+                  type="number" min="0"
+                  value={qtyInputs[prod.product_id] ?? prod.quantity ?? 0}
+                  onChange={(e) => setQtyInputs((q) => ({ ...q, [prod.product_id]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                  style={{
+                    flex: 1, background: "transparent", border: "none",
+                    borderBottom: "1px solid rgba(212,175,55,0.3)", color: "#F0EFE8",
+                    padding: "6px 0", fontFamily: "'Cinzel',serif", fontSize: 18,
+                    outline: "none", MozAppearance: "textfield",
+                  }}
+                />
+                <button
+                  className="admin-btn"
+                  disabled={savingQty === prod.product_id}
+                  onClick={() => saveQuantity(prod.product_id)}
+                >
+                  {savingQty === prod.product_id ? "…" : "Set"}
+                </button>
+              </div>
+
+              {/* Stock status buttons */}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {[["in_stock", "In Stock"], ["low", "Low Stock"], ["out_of_stock", "Out of Stock"]].map(([key, label]) => (
                   <button
@@ -388,7 +445,7 @@ function InventoryTab({ inventory, pw, updating, setUpdating, setInventory, load
         })}
       </div>
       <div style={{ fontSize: 10, color: "#3A3A32", letterSpacing: ".12em" }}>
-        Changes reflect on the store within 30 seconds.
+        Stock status changes reflect on the store within 30 seconds.
       </div>
     </div>
   );
@@ -573,6 +630,7 @@ const ENDPOINTS = {
   analytics:   "/api/admin/analytics",
   subscribers: "/api/admin/subscribers",
   inventory:   "/api/admin/inventory",
+  affiliates:  "/api/admin/affiliate-codes",
 };
 
 async function fetchTab(tabName, password) {
@@ -591,6 +649,138 @@ async function fetchTab(tabName, password) {
   }
 }
 
+// ── Affiliates Tab ───────────────────────────────────────────────────────────
+
+function AffiliatesTab({ affiliates, pw, setAffiliates, loadTab }) {
+  const codes = affiliates || [];
+  const [label, setLabel]   = useState("");
+  const [uses, setUses]     = useState(1);
+  const [disc, setDisc]     = useState(10);
+  const [generating, setGenerating] = useState(false);
+  const [deactivating, setDeactivating] = useState(null);
+  const [newCode, setNewCode] = useState(null);
+
+  const postAffiliate = async (body) => {
+    const res = await fetch("/api/admin/affiliate-codes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: pw, ...body }),
+    });
+    return res.json();
+  };
+
+  const generate = async () => {
+    setGenerating(true);
+    setNewCode(null);
+    const data = await postAffiliate({ action: "generate", label: label.trim() || null, uses, discount_pct: disc });
+    if (data.code) setNewCode(data.code.code);
+    const result = await loadTab("affiliates", pw);
+    if (result) setAffiliates(result);
+    setGenerating(false);
+  };
+
+  const deactivate = async (id) => {
+    setDeactivating(id);
+    await postAffiliate({ action: "deactivate", code_id: id });
+    const result = await loadTab("affiliates", pw);
+    if (result) setAffiliates(result);
+    setDeactivating(null);
+  };
+
+  const active   = codes.filter((c) => c.is_active && c.uses_remaining > 0);
+  const inactive = codes.filter((c) => !c.is_active || c.uses_remaining === 0);
+
+  const inputStyle = {
+    background: "transparent", border: "none", borderBottom: "1px solid rgba(212,175,55,0.3)",
+    color: "#F0EFE8", padding: "6px 0", fontFamily: "'Cinzel',serif", fontSize: 16,
+    outline: "none", width: "100%",
+  };
+
+  return (
+    <div>
+      {/* Generator */}
+      <div style={{ background: "#0D0D0D", border: "1px solid rgba(212,175,55,0.18)", padding: "28px", marginBottom: 28 }}>
+        <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: ".2em", textTransform: "uppercase", fontWeight: 700, marginBottom: 22 }}>
+          Generate New Code
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 24, marginBottom: 22 }}>
+          <div>
+            <label className="section-label">Label (optional)</label>
+            <input style={inputStyle} type="text" placeholder="e.g. Influencer A" value={label} onChange={(e) => setLabel(e.target.value)} />
+          </div>
+          <div>
+            <label className="section-label">Discount %</label>
+            <input style={inputStyle} type="number" min="1" max="100" value={disc} onChange={(e) => setDisc(parseInt(e.target.value) || 10)} />
+          </div>
+          <div>
+            <label className="section-label">Max Uses</label>
+            <input style={inputStyle} type="number" min="1" value={uses} onChange={(e) => setUses(parseInt(e.target.value) || 1)} />
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <button className="btn-gold" style={{ padding: "11px 28px", fontSize: 10, letterSpacing: ".14em", textTransform: "uppercase", fontWeight: 700, fontFamily: "'Montserrat',sans-serif", cursor: "pointer", border: "none" }} onClick={generate} disabled={generating}>
+            {generating ? "Generating…" : "Generate Code"}
+          </button>
+          {newCode && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontFamily: "monospace", fontSize: 18, color: "#D4AF37", letterSpacing: "0.12em" }}>{newCode}</span>
+              <button onClick={() => navigator.clipboard?.writeText(newCode)} className="admin-btn" style={{ padding: "4px 10px" }}>Copy</button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Active codes */}
+      {active.length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: ".18em", textTransform: "uppercase", fontWeight: 700, marginBottom: 12 }}>
+            Active ({active.length})
+          </div>
+          {active.map((c) => (
+            <div key={c.id} className="row-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ fontFamily: "monospace", fontSize: 16, color: "#D4AF37", letterSpacing: "0.1em" }}>{c.code}</span>
+                {c.label && <span style={{ fontSize: 11, color: "#5A5A52" }}>{c.label}</span>}
+                <span style={{ fontSize: 10, color: "#70a870" }}>{c.discount_pct}% off</span>
+                <span style={{ fontSize: 10, color: "#4A4A42" }}>{c.uses_remaining} / {c.uses_total} uses left</span>
+                <span style={{ fontSize: 9, color: "#3A3A32" }}>{fmtDateShort(c.created_at)}</span>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => navigator.clipboard?.writeText(c.code)} className="admin-btn" style={{ padding: "5px 12px" }}>Copy</button>
+                <button onClick={() => deactivate(c.id)} className="admin-btn danger" disabled={deactivating === c.id} style={{ padding: "5px 12px" }}>
+                  {deactivating === c.id ? "…" : "Deactivate"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Inactive codes */}
+      {inactive.length > 0 && (
+        <div>
+          <div style={{ fontSize: 9, color: "#3A3A32", letterSpacing: ".18em", textTransform: "uppercase", fontWeight: 700, marginBottom: 12 }}>
+            Used / Inactive ({inactive.length})
+          </div>
+          {inactive.map((c) => (
+            <div key={c.id} className="row-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 20px", opacity: 0.45, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ fontFamily: "monospace", fontSize: 15, color: "#5A5A52", letterSpacing: "0.1em", textDecoration: "line-through" }}>{c.code}</span>
+                {c.label && <span style={{ fontSize: 11, color: "#3A3A32" }}>{c.label}</span>}
+                <span style={{ fontSize: 10, color: "#3A3A32" }}>{c.discount_pct}% · {c.uses_remaining}/{c.uses_total} uses</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {codes.length === 0 && (
+        <div style={{ textAlign: "center", padding: "48px 0", fontSize: 12, color: "#3A3A32" }}>No codes yet. Generate one above.</div>
+      )}
+    </div>
+  );
+}
+
 export default function Admin() {
   const [pw,          setPw]          = useState("");
   const [authed,      setAuthed]      = useState(false);
@@ -604,9 +794,10 @@ export default function Admin() {
   const [analytics,   setAnalytics]   = useState(null);
   const [subscribers, setSubscribers] = useState(null);
   const [inventory,   setInventory]   = useState(null);
+  const [affiliates,  setAffiliates]  = useState(null);
 
-  const DATA_MAP = { orders, customers, analytics, subscribers, inventory };
-  const SET_MAP  = { orders: setOrders, customers: setCustomers, analytics: setAnalytics, subscribers: setSubscribers, inventory: setInventory };
+  const DATA_MAP = { orders, customers, analytics, subscribers, inventory, affiliates };
+  const SET_MAP  = { orders: setOrders, customers: setCustomers, analytics: setAnalytics, subscribers: setSubscribers, inventory: setInventory, affiliates: setAffiliates };
 
   // loadTab: always returns the raw data, and stores it
   const loadTab = async (tabName, password) => {
@@ -736,6 +927,13 @@ export default function Admin() {
             updating={updating}
             setUpdating={setUpdating}
             setInventory={setInventory}
+            loadTab={loadTab}
+          />
+        ) : tab === "affiliates" ? (
+          <AffiliatesTab
+            affiliates={affiliates}
+            pw={pw}
+            setAffiliates={setAffiliates}
             loadTab={loadTab}
           />
         ) : tab === "subscribers" ? (

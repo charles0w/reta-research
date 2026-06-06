@@ -455,6 +455,34 @@ export default function App() {
   // Post-payment success
   const [paid, setPaid] = useState(false);
 
+  // Promo / affiliate code
+  const [promoInput, setPromoInput] = useState("");
+  const [promoCode, setPromoCode] = useState(null);   // validated code string
+  const [promoDiscount, setPromoDiscount] = useState(0); // e.g. 10 for 10%
+  const [promoError, setPromoError] = useState(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+
+  const applyPromo = async () => {
+    if (!promoInput.trim()) return;
+    setPromoLoading(true);
+    setPromoError(null);
+    try {
+      const res = await fetch("/api/validate-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: promoInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setPromoError(data.error || "Invalid code"); }
+      else { setPromoCode(promoInput.trim().toUpperCase()); setPromoDiscount(data.discount_pct); }
+    } catch { setPromoError("Could not validate code. Try again."); }
+    setPromoLoading(false);
+  };
+
+  const removePromo = () => { setPromoCode(null); setPromoDiscount(0); setPromoInput(""); setPromoError(null); };
+
+  const discountedTotal = promoCode ? +(cartTotal * (1 - promoDiscount / 100)).toFixed(2) : cartTotal;
+
   // Calculator
   const [vialMg, setVialMg] = useState(10);
   const [diluentMl, setDiluentMl] = useState(2);
@@ -567,7 +595,7 @@ export default function App() {
       const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
       const data = await res.json();
       const ethPrice  = data.ethereum.usd;
-      const ethAmount = cartTotal / ethPrice;
+      const ethAmount = discountedTotal / ethPrice;
       const weiAmount = BigInt(Math.round(ethAmount * 1e14)) * 10000n;
       const hexValue  = "0x" + weiAmount.toString(16);
       const tx = await provider.request({
@@ -580,7 +608,7 @@ export default function App() {
       fetch("/api/send-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart, shipping: ship, txHash: tx, total: cartTotal, paymentMethod: "eth" }),
+        body: JSON.stringify({ cart, shipping: ship, txHash: tx, total: discountedTotal, paymentMethod: "eth", promoCode }),
       }).catch(() => {});
     } catch (err) {
       setWalletError(err.message || "Transaction failed. Please try again.");
@@ -604,7 +632,7 @@ export default function App() {
         return;
       }
       // Encode ERC-20 transfer(address,uint256) — USDC has 6 decimals
-      const usdcAmount   = BigInt(Math.round(cartTotal * 1e6));
+      const usdcAmount   = BigInt(Math.round(discountedTotal * 1e6));
       const recipientHex = RECIPIENT_ADDRESS.slice(2).toLowerCase().padStart(64, "0");
       const amountHex    = usdcAmount.toString(16).padStart(64, "0");
       const data = `0xa9059cbb${recipientHex}${amountHex}`;
@@ -618,7 +646,7 @@ export default function App() {
       fetch("/api/send-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart, shipping: ship, txHash: tx, total: cartTotal, paymentMethod: "usdc" }),
+        body: JSON.stringify({ cart, shipping: ship, txHash: tx, total: discountedTotal, paymentMethod: "usdc", promoCode }),
       }).catch(() => {});
     } catch (err) {
       setWalletError(err.message || "Transaction failed. Please try again.");
@@ -1540,11 +1568,49 @@ export default function App() {
                   </div>
                 ))}
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "28px 0", borderTop: "1px solid rgba(212,175,55,0.15)" }}>
-                  <span style={{ fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#6A6A60" }}>Total</span>
-                  <span style={{ fontFamily: "'Cinzel', serif", fontSize: 28, background: "linear-gradient(90deg,#9A7A1A,#F5D07A,#D4AF37,#F5D07A,#9A7A1A)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", animation: "shimmer 5s linear infinite" }}>
-                    ${cartTotal.toFixed(2)}
-                  </span>
+                <div style={{ padding: "20px 0", borderTop: "1px solid rgba(212,175,55,0.15)" }}>
+                  {/* Promo code input */}
+                  {!promoCode ? (
+                    <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 20 }}>
+                      <div style={{ flex: 1 }}>
+                        <label className="calc-label">Promo / Affiliate Code</label>
+                        <input
+                          className="ship-input" type="text"
+                          placeholder="Enter code"
+                          value={promoInput}
+                          onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoError(null); }}
+                          onKeyDown={(e) => e.key === "Enter" && applyPromo()}
+                          style={{ textTransform: "uppercase", letterSpacing: "0.1em" }}
+                        />
+                        {promoError && <div style={{ fontSize: 10, color: "#B04040", marginTop: 6 }}>{promoError}</div>}
+                      </div>
+                      <button className="btn-outline-gold" style={{ padding: "10px 20px", flexShrink: 0 }} onClick={applyPromo} disabled={promoLoading}>
+                        {promoLoading ? "…" : "Apply"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, padding: "10px 14px", border: "1px solid rgba(112,168,112,0.3)", background: "rgba(80,128,80,0.06)" }}>
+                      <span style={{ fontSize: 11, color: "#70a870" }}>
+                        ✓ <strong>{promoCode}</strong> — {promoDiscount}% off applied
+                      </span>
+                      <button onClick={removePromo} style={{ background: "none", border: "none", color: "#5A5A52", cursor: "pointer", fontSize: 11 }}>✕</button>
+                    </div>
+                  )}
+
+                  {/* Order total */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#6A6A60" }}>Total</span>
+                    <div style={{ textAlign: "right" }}>
+                      {promoCode && (
+                        <div style={{ fontSize: 14, color: "#4A4A42", textDecoration: "line-through", fontFamily: "'Cinzel', serif", marginBottom: 2 }}>
+                          ${cartTotal.toFixed(2)}
+                        </div>
+                      )}
+                      <span style={{ fontFamily: "'Cinzel', serif", fontSize: 28, background: "linear-gradient(90deg,#9A7A1A,#F5D07A,#D4AF37,#F5D07A,#9A7A1A)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", animation: "shimmer 5s linear infinite" }}>
+                        ${discountedTotal.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Shipping information */}
@@ -1624,10 +1690,10 @@ export default function App() {
                       <div className="wallet-address">{walletAddress}</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
                         <button className="btn-gold" style={{ width: "100%", padding: 16 }} onClick={payWithUSDC} disabled={paymentLoading}>
-                          {paymentLoading ? "Awaiting wallet…" : `Pay $${cartTotal.toFixed(2)} in USDC`}
+                          {paymentLoading ? "Awaiting wallet…" : `Pay $${discountedTotal.toFixed(2)} in USDC`}
                         </button>
                         <button className="btn-outline-gold" style={{ width: "100%", padding: 14 }} onClick={payWithWallet} disabled={paymentLoading}>
-                          {paymentLoading ? "Awaiting wallet…" : `Pay $${cartTotal.toFixed(2)} in ETH`}
+                          {paymentLoading ? "Awaiting wallet…" : `Pay $${discountedTotal.toFixed(2)} in ETH`}
                         </button>
                       </div>
                       <div style={{ fontSize: 9, color: "#3A3A32", letterSpacing: "0.10em", textAlign: "center", marginTop: 10 }}>
