@@ -34,9 +34,11 @@ export default async function handler(req, res) {
   // Update quantity
   if (product_id !== undefined && quantity !== undefined) {
     const qty = Math.max(0, parseInt(quantity) || 0);
+    const qtyUpdate = { quantity: qty };
+    if (qty === 0) qtyUpdate.stock_status = "out_of_stock";
     const { data, error } = await supabase
       .from("product_stock")
-      .update({ quantity: qty })
+      .update(qtyUpdate)
       .eq("product_id", product_id)
       .select();
     if (error) return res.status(500).json({ error: error.message });

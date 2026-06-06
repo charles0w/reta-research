@@ -193,9 +193,11 @@ export default async function handler(req, res) {
           .single();
         if (stock) {
           const newQty = Math.max(0, (stock.quantity || 0) - qty);
+          const stockUpdate = { quantity: newQty };
+          if (newQty === 0) stockUpdate.stock_status = "out_of_stock";
           await supabase
             .from("product_stock")
-            .update({ quantity: newQty })
+            .update(stockUpdate)
             .eq("product_id", productId);
         }
       }

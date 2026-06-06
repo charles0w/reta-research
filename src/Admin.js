@@ -117,17 +117,19 @@ function StatCard({ label, value }) {
 function OrdersTab({ orders, pw, updating, setUpdating, setOrders, loadTab }) {
   const [filter, setFilter] = useState("all");
   const [expanded, setExpanded] = useState(null);
+  const [shippingOrder, setShippingOrder] = useState(null);
+  const [trackingInput, setTrackingInput] = useState("");
 
   const revenue  = orders.reduce((s, o) => s + Number(o.total_usd), 0);
   const pending  = orders.filter((o) => o.status === "pending").length;
   const filtered = filter === "all" ? orders : orders.filter((o) => o.status === filter);
 
-  const updateStatus = async (id, status) => {
+  const updateStatus = async (id, status, trackingNumber) => {
     setUpdating(id);
     await fetch("/api/admin/update-order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: pw, id, status }),
+      body: JSON.stringify({ password: pw, id, status, tracking_number: trackingNumber || undefined }),
     });
     const result = await loadTab("orders", pw);
     if (result) setOrders(result);
@@ -216,11 +218,39 @@ function OrdersTab({ orders, pw, updating, setUpdating, setOrders, loadTab }) {
                       {order.payment_ref.slice(0, 20)}…
                     </a>
                   )}
+                  {order.tracking_number && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: ".14em", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>Tracking</div>
+                      <div style={{ fontSize: 12, color: "#F0EFE8", fontFamily: "monospace", wordBreak: "break-all" }}>{order.tracking_number}</div>
+                    </div>
+                  )}
                   <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 8 }}>
                     {order.status === "pending" && (
-                      <button className="admin-btn" disabled={updating === order.id} onClick={() => updateStatus(order.id, "shipped")}>
-                        {updating === order.id ? "…" : "✓ Mark Shipped"}
-                      </button>
+                      shippingOrder === order.id ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          <input
+                            type="text"
+                            placeholder="Tracking # (optional)"
+                            value={trackingInput}
+                            onChange={(e) => setTrackingInput(e.target.value)}
+                            style={{ background: "transparent", border: "none", borderBottom: "1px solid rgba(212,175,55,0.3)", color: "#F0EFE8", padding: "6px 0", fontSize: 12, outline: "none", fontFamily: "monospace" }}
+                          />
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button className="admin-btn" disabled={updating === order.id}
+                              onClick={() => { updateStatus(order.id, "shipped", trackingInput); setShippingOrder(null); setTrackingInput(""); }}>
+                              {updating === order.id ? "…" : "Confirm Ship"}
+                            </button>
+                            <button className="admin-btn" onClick={() => { setShippingOrder(null); setTrackingInput(""); }}>
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button className="admin-btn" disabled={updating === order.id}
+                          onClick={() => setShippingOrder(order.id)}>
+                          {updating === order.id ? "…" : "✓ Mark Shipped"}
+                        </button>
+                      )
                     )}
                     {order.status === "shipped" && (
                       <button className="admin-btn" disabled={updating === order.id} onClick={() => updateStatus(order.id, "delivered")}>
