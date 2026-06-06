@@ -70,10 +70,13 @@ export default async function handler(req, res) {
         if (status === "shipped") {
           subject = "Your order has shipped — Ace Peptides";
 
-          const trackingSection = order.tracking_number
+          // Use the tracking_number from req.body (already saved to DB) rather than
+          // the re-fetched row to avoid stale reads on read replicas.
+          const resolvedTracking = payload.tracking_number || order.tracking_number;
+          const trackingSection = resolvedTracking
             ? `<div style="margin-bottom:24px;padding:16px;background:#1a1a1a;">
                 <p style="margin:0 0 4px;font-size:13px;color:#888;text-transform:uppercase;letter-spacing:1px;">Tracking Number</p>
-                <p style="margin:0;font-size:15px;color:#D4AF37;font-weight:bold;">${esc(order.tracking_number)}</p>
+                <p style="margin:0;font-size:15px;color:#D4AF37;font-weight:bold;">${esc(resolvedTracking)}</p>
               </div>`
             : "";
 

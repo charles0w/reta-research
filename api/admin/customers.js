@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     }
 
     const customer = customerMap[email];
-    const amount = typeof order.total === "number" ? order.total : parseFloat(order.total) || 0;
+    const amount = typeof order.total_usd === "number" ? order.total_usd : parseFloat(order.total_usd) || 0;
     customer.totalSpent += amount;
     customer.orderCount += 1;
 

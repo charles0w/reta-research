@@ -51,9 +51,9 @@ export default async function handler(req, res) {
 
   for (const order of orders) {
     const amount =
-      typeof order.total === "number"
-        ? order.total
-        : parseFloat(order.total) || 0;
+      typeof order.total_usd === "number"
+        ? order.total_usd
+        : parseFloat(order.total_usd) || 0;
 
     const createdAt = new Date(order.created_at);
 

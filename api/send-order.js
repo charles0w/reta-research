@@ -162,44 +162,52 @@ export default async function handler(req, res) {
         })
         .select("id")
         .single();
-      if (error) console.error("Supabase insert error:", error.message);
-      else orderId = data.id;
+      if (error) {
+        console.error("Supabase insert error:", error.message);
+      } else {
+        orderId = data.id;
 
-      // Consume affiliate code (decrement uses_remaining by 1)
-      if (promoCode) {
-        const { data: ac } = await supabase
-          .from("affiliate_codes")
-          .select("id, uses_remaining")
-          .eq("code", promoCode.toUpperCase().trim())
-          .single();
-        if (ac) {
-          const newUses = Math.max(0, ac.uses_remaining - 1);
-          await supabase
+        // Consume affiliate code with optimistic lock:
+        // read uses_remaining, then UPDATE only if it hasn't changed (prevents TOCTOU).
+        if (promoCode) {
+          const { data: ac } = await supabase
             .from("affiliate_codes")
-            .update({ uses_remaining: newUses, is_active: newUses > 0 })
-            .eq("id", ac.id);
+            .select("id, uses_remaining")
+            .eq("code", promoCode.toUpperCase().trim())
+            .gt("uses_remaining", 0)
+            .single();
+          if (ac) {
+            const newUses = Math.max(0, ac.uses_remaining - 1);
+            await supabase
+              .from("affiliate_codes")
+              .update({ uses_remaining: newUses, is_active: newUses > 0 })
+              .eq("id", ac.id)
+              .eq("uses_remaining", ac.uses_remaining); // only update if value is still unchanged
+          }
         }
-      }
 
-      // Decrement stock quantity for each product ordered
-      for (const item of cart) {
-        const productId = typeof item.id === "number" ? item.id : null;
-        if (!productId) continue; // skip subscription items
-        const qty = parseInt(item.qty) || 1;
-        const { data: stock } = await supabase
-          .from("product_stock")
-          .select("quantity")
-          .eq("product_id", productId)
-          .single();
-        if (stock) {
-          const newQty = Math.max(0, (stock.quantity || 0) - qty);
-          const stockUpdate = { quantity: newQty };
-          if (newQty === 0) stockUpdate.stock_status = "out_of_stock";
-          await supabase
-            .from("product_stock")
-            .update(stockUpdate)
-            .eq("product_id", productId);
-        }
+        // Decrement stock quantity for each product ordered (only on confirmed order)
+        await Promise.all(
+          cart
+            .filter((item) => typeof item.id === "number")
+            .map(async (item) => {
+              const qty = parseInt(item.qty) || 1;
+              const { data: stock } = await supabase
+                .from("product_stock")
+                .select("quantity")
+                .eq("product_id", item.id)
+                .single();
+              if (stock) {
+                const newQty = Math.max(0, (stock.quantity || 0) - qty);
+                const stockUpdate = { quantity: newQty };
+                if (newQty === 0) stockUpdate.stock_status = "out_of_stock";
+                await supabase
+                  .from("product_stock")
+                  .update(stockUpdate)
+                  .eq("product_id", item.id);
+              }
+            })
+        );
       }
     } catch (err) {
       console.error("Supabase error:", err);
