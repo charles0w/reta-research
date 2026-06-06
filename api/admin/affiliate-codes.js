@@ -1,11 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
+import { randomInt } from "crypto";
 
 function generateCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 10; i++) {
     if (i === 4) code += "-";
-    code += chars[Math.floor(Math.random() * chars.length)];
+    code += chars[randomInt(0, chars.length)];
   }
   return code;
 }
