@@ -366,7 +366,7 @@ function InventoryTab({ inventory, pw, updating, setUpdating, setInventory, load
           const s = STOCK[prod.stock_status] || STOCK.out_of_stock;
           return (
             <div key={prod.product_id} style={{ background: "#0D0D0D", border: "1px solid rgba(212,175,55,0.12)", padding: "28px 24px" }}>
-              <div className="cinzel" style={{ fontSize: 15, marginBottom: 6 }}>{prod.name}</div>
+              <div className="cinzel" style={{ fontSize: 15, marginBottom: 6 }}>{prod.product_name || prod.name}</div>
               {prod.sku && <div style={{ fontSize: 9, color: "#3A3A32", letterSpacing: ".16em", marginBottom: 16 }}>{prod.sku}</div>}
               <div style={{ marginBottom: 20 }}>
                 <span style={{ fontSize: 8, letterSpacing: ".14em", textTransform: "uppercase", fontWeight: 700, padding: "4px 10px", background: s.bg, color: s.color }}>{s.label}</span>
@@ -525,7 +525,7 @@ function AnalyticsTab({ analytics }) {
       {/* Daily Revenue Bar Chart */}
       <div style={{ background: "#0D0D0D", border: "1px solid rgba(212,175,55,0.1)", padding: "22px" }}>
         <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: ".18em", textTransform: "uppercase", fontWeight: 700, marginBottom: 20 }}>
-          Daily Revenue — Last {dailySlice.length} Days
+          Daily Revenue — Last 30 Days
         </div>
         {dailySlice.length === 0 ? (
           <div style={{ fontSize: 11, color: "#3A3A32" }}>No data.</div>
