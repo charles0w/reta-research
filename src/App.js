@@ -135,7 +135,7 @@ const AceLogo = ({ size = 80, className = "" }) => {
 };
 
 // Playing-card spread component
-function CardSpread({ products, onAdd }) {
+function CardSpread({ products, onAdd, stockMap }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(null);
   const isMobile = useMediaQuery("(max-width: 720px)");
@@ -194,14 +194,24 @@ function CardSpread({ products, onAdd }) {
               <div style={{ fontSize: 9, color: "#3A3A32", letterSpacing: "0.10em", textTransform: "uppercase", marginTop: 3, fontFamily: "'Montserrat', sans-serif" }}>
                 {p.form}
               </div>
-              {p.stock === "low" && (
+              {stockMap[p.id] === "low" && (
                 <div style={{ marginTop: 8, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "#B87333", fontWeight: 700, fontFamily: "'Montserrat', sans-serif" }}>
                   ⚠ Low Stock
                 </div>
               )}
+              {stockMap[p.id] === "out_of_stock" && (
+                <div style={{ marginTop: 8, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "#B04040", fontWeight: 700, fontFamily: "'Montserrat', sans-serif" }}>
+                  ✕ Out of Stock
+                </div>
+              )}
             </div>
 
-            <button className="btn-gold" style={{ marginTop: 4, zIndex: 1 }} onClick={() => onAdd(p)}>
+            <button
+              className="btn-gold"
+              style={{ marginTop: 4, zIndex: 1, opacity: stockMap[p.id] === "out_of_stock" ? 0.4 : 1, cursor: stockMap[p.id] === "out_of_stock" ? "not-allowed" : "pointer" }}
+              onClick={() => { if (stockMap[p.id] !== "out_of_stock") onAdd(p); }}
+              disabled={stockMap[p.id] === "out_of_stock"}
+            >
               Add to Cart
             </button>
           </div>
@@ -252,7 +262,7 @@ function CardSpread({ products, onAdd }) {
             }}
             onMouseEnter={() => open && setActive(i)}
             onMouseLeave={() => setActive(null)}
-            onClick={() => open && onAdd(p)}
+            onClick={() => open && stockMap[p.id] !== "out_of_stock" && onAdd(p)}
           >
             {/* Inner inset border */}
             <div style={{ position: "absolute", inset: 7, border: "1px solid rgba(212,175,55,0.09)", pointerEvents: "none" }} />
@@ -292,17 +302,22 @@ function CardSpread({ products, onAdd }) {
                 <div style={{ fontSize: 9, color: "#3A3A32", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 3, fontFamily: "'Montserrat', sans-serif" }}>
                   {p.form}
                 </div>
-                {p.stock === "low" && (
+                {stockMap[p.id] === "low" && (
                   <div style={{ marginTop: 8, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "#B87333", fontWeight: 700, fontFamily: "'Montserrat', sans-serif" }}>
                     ⚠ Low Stock
+                  </div>
+                )}
+                {stockMap[p.id] === "out_of_stock" && (
+                  <div style={{ marginTop: 8, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "#B04040", fontWeight: 700, fontFamily: "'Montserrat', sans-serif" }}>
+                    ✕ Out of Stock
                   </div>
                 )}
               </div>
               <div style={{
                 marginTop: 8,
-                background: isActive ? "linear-gradient(135deg, #9A7A1A, #D4AF37, #F5D07A)" : "transparent",
-                border: isActive ? "none" : "1px solid rgba(212,175,55,0.25)",
-                color: isActive ? "#000" : "#5A5A52",
+                background: isActive && stockMap[p.id] !== "out_of_stock" ? "linear-gradient(135deg, #9A7A1A, #D4AF37, #F5D07A)" : "transparent",
+                border: isActive && stockMap[p.id] !== "out_of_stock" ? "none" : "1px solid rgba(212,175,55,0.25)",
+                color: isActive && stockMap[p.id] !== "out_of_stock" ? "#000" : "#5A5A52",
                 padding: "9px 22px",
                 fontSize: 9,
                 letterSpacing: ".14em",
@@ -310,8 +325,9 @@ function CardSpread({ products, onAdd }) {
                 fontWeight: 700,
                 fontFamily: "'Montserrat', sans-serif",
                 transition: "background 0.3s, color 0.3s, border 0.3s",
+                opacity: stockMap[p.id] === "out_of_stock" ? 0.45 : 1,
               }}>
-                {isActive ? "Add to Cart" : "— view —"}
+                {stockMap[p.id] === "out_of_stock" ? "Out of Stock" : isActive ? "Add to Cart" : "— view —"}
               </div>
             </div>
 
@@ -453,6 +469,19 @@ export default function App() {
     const d = new Date(); d.setDate(d.getDate() + 1);
     return d.toISOString().slice(0, 10);
   });
+
+  const [stockMap, setStockMap] = useState({ 1: "in_stock", 2: "in_stock", 3: "low" });
+
+  useEffect(() => {
+    fetch("/api/stock")
+      .then((r) => r.json())
+      .then((data) => {
+        const map = {};
+        for (const s of (data.stock || [])) map[s.product_id] = s.stock_status;
+        setStockMap(map);
+      })
+      .catch(() => {});
+  }, []);
 
   const subProduct = products.find((p) => p.id === subProductId) ?? products[1];
   const tierDiscount = SUB_TIERS.find((t) => t.key === selectedTier)?.discount ?? 0;
@@ -1090,7 +1119,7 @@ export default function App() {
             </div>
 
             {/* Card spread — main product interaction */}
-            <CardSpread products={products} onAdd={addToCart} />
+            <CardSpread products={products} onAdd={addToCart} stockMap={stockMap} />
 
             {/* Spacer for hint text */}
             <div style={{ height: 68 }} />
@@ -1111,9 +1140,14 @@ export default function App() {
                   }}>
                     ${p.price.toFixed(2)}
                   </div>
-                  {p.stock === "low" && (
+                  {stockMap[p.id] === "low" && (
                     <div style={{ marginTop: 8, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "#B87333", fontWeight: 700, fontFamily: "'Montserrat', sans-serif" }}>
                       ⚠ Low Stock
+                    </div>
+                  )}
+                  {stockMap[p.id] === "out_of_stock" && (
+                    <div style={{ marginTop: 8, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "#B04040", fontWeight: 700, fontFamily: "'Montserrat', sans-serif" }}>
+                      ✕ Out of Stock
                     </div>
                   )}
                 </div>
