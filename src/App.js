@@ -454,6 +454,7 @@ export default function App() {
 
   // Post-payment success
   const [paid, setPaid] = useState(false);
+  const [orderWarning, setOrderWarning] = useState(false);
 
   // Promo / affiliate code
   const [promoInput, setPromoInput] = useState("");
@@ -481,6 +482,8 @@ export default function App() {
 
   const removePromo = () => { setPromoCode(null); setPromoDiscount(0); setPromoInput(""); setPromoError(null); };
 
+  const totalItems = cart.reduce((s, i) => s + i.qty, 0);
+  const cartTotal  = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const discountedTotal = promoCode ? +(cartTotal * (1 - promoDiscount / 100)).toFixed(2) : cartTotal;
 
   // Calculator
@@ -533,9 +536,6 @@ export default function App() {
       )
     );
 
-  const totalItems = cart.reduce((s, i) => s + i.qty, 0);
-  const cartTotal  = cart.reduce((s, i) => s + i.price * i.qty, 0);
-
   const startSubscription = () => {
     if (!selectedTier) return;
     const tier = SUB_TIERS.find((t) => t.key === selectedTier);
@@ -547,6 +547,7 @@ export default function App() {
       return [...prev, {
         ...subProduct,
         id: subId,
+        productId: subProduct.id,
         name: `${subProduct.name} — ${tier.name} Subscription`,
         price: discountedPrice,
         qty: subQty,
@@ -585,6 +586,33 @@ export default function App() {
 
   const connectCoinbase = () => connectWallet(coinbaseProvider);
 
+  // Records the order after the on-chain payment has settled. The payment is
+  // irreversible by this point, so a save failure must never be swallowed:
+  // we persist the payload locally so it's recoverable and surface a notice.
+  // Returns true only when the server confirms a saved order.
+  const submitOrder = async (tx, method) => {
+    const payload = { cart, shipping: ship, txHash: tx, total: discountedTotal, paymentMethod: method, promoCode };
+    try {
+      const res = await fetch("/api/send-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok || !data.orderId) throw new Error(data.error || "Order not recorded");
+      return true;
+    } catch (err) {
+      try {
+        localStorage.setItem(
+          `ace_pending_order_${tx}`,
+          JSON.stringify({ ...payload, error: String((err && err.message) || err) })
+        );
+      } catch {}
+      console.error("Order save failed; payload stashed locally:", err);
+      return false;
+    }
+  };
+
   const payWithWallet = async () => {
     const provider = activeProvider.current;
     if (!provider || !walletAddress) return;
@@ -603,13 +631,10 @@ export default function App() {
         params: [{ from: walletAddress, to: RECIPIENT_ADDRESS, value: hexValue }],
       });
       setTxHash(tx);
+      const saved = await submitOrder(tx, "eth");
+      setOrderWarning(!saved);
       setPaid(true);
       setCart([]);
-      fetch("/api/send-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart, shipping: ship, txHash: tx, total: discountedTotal, paymentMethod: "eth", promoCode }),
-      }).catch(() => {});
     } catch (err) {
       setWalletError(err.message || "Transaction failed. Please try again.");
     } finally {
@@ -641,13 +666,10 @@ export default function App() {
         params: [{ from: walletAddress, to: USDC_CONTRACT, data, value: "0x0" }],
       });
       setTxHash(tx);
+      const saved = await submitOrder(tx, "usdc");
+      setOrderWarning(!saved);
       setPaid(true);
       setCart([]);
-      fetch("/api/send-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart, shipping: ship, txHash: tx, total: discountedTotal, paymentMethod: "usdc", promoCode }),
-      }).catch(() => {});
     } catch (err) {
       setWalletError(err.message || "Transaction failed. Please try again.");
     } finally {
@@ -1533,13 +1555,20 @@ export default function App() {
                 <p style={{ fontSize: 13, color: "#5A5A52", lineHeight: 1.8, marginBottom: 8, maxWidth: 400, margin: "0 auto 10px" }}>
                   Payment sent. We'll ship to <strong style={{ color: "#F0EFE8" }}>{ship.name}</strong> within 1–2 business days.
                 </p>
-                <p style={{ fontSize: 12, color: "#4A4A42", marginBottom: 24 }}>
-                  Confirmation sent to {ship.email}.
-                </p>
+                {orderWarning ? (
+                  <p style={{ fontSize: 12, color: "#C2873B", lineHeight: 1.7, maxWidth: 440, margin: "0 auto 24px" }}>
+                    Your payment went through, but we hit a snag recording the order. Please email{" "}
+                    <strong style={{ color: "#F0EFE8" }}>support@ace-peptides.com</strong> with the transaction hash below and we'll confirm your shipment right away.
+                  </p>
+                ) : (
+                  <p style={{ fontSize: 12, color: "#4A4A42", marginBottom: 24 }}>
+                    Confirmation sent to {ship.email}.
+                  </p>
+                )}
                 <div style={{ fontFamily: "monospace", fontSize: 10, color: "#3A3A32", wordBreak: "break-all", maxWidth: 480, margin: "0 auto 32px", padding: "12px 16px", border: "1px solid rgba(212,175,55,0.1)" }}>
                   Tx: {txHash}
                 </div>
-                <button className="btn-outline-gold" onClick={() => { setPaid(false); setTxHash(null); setSection("products"); }}>
+                <button className="btn-outline-gold" onClick={() => { setPaid(false); setOrderWarning(false); setTxHash(null); setSection("products"); }}>
                   Continue Shopping
                 </button>
               </div>
