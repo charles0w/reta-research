@@ -1,5 +1,8 @@
 import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
+import { priceCart, applyDiscount } from "./_catalog.js";
+import { verifyPayment } from "./_verifyPayment.js";
+import { decrementStock, fetchEthUsd } from "./_fulfill.js";
 
 const esc = (s) =>
   String(s ?? "")
@@ -43,9 +46,6 @@ export default async function handler(req, res) {
 
   const { cart, shipping, txHash, total, paymentMethod = "eth", promoCode } = req.body;
 
-  // --- Persist the order FIRST. The customer has already paid on-chain by the
-  // time this runs, so recording the order is the hard precondition for success;
-  // a silent failure here is a lost paid order. Email is best-effort, later. ---
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
     console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_KEY — cannot record order");
     return res.status(500).json({ error: "Order storage not configured" });
@@ -57,18 +57,65 @@ export default async function handler(req, res) {
     { auth: { persistSession: false } }
   );
 
-  // Idempotency: a given on-chain txHash maps to exactly one order. If we've
-  // already recorded it (double-submit, client retry, or replay), return the
-  // existing order without re-running side effects. The UNIQUE(payment_ref)
-  // constraint (see migration note) is the race-safe backstop.
+  // --- Server-side price authority. The client total/price are NOT trusted;
+  // recompute from the server catalog and the server-validated affiliate
+  // discount, and reject any mismatch (blocks price tampering). ---
+  let affiliate = null;
+  let discountPct = 0;
+  if (promoCode) {
+    const { data: ac } = await supabase
+      .from("affiliate_codes")
+      .select("id, uses_remaining, discount_pct")
+      .eq("code", promoCode.toUpperCase().trim())
+      .eq("is_active", true)
+      .gt("uses_remaining", 0)
+      .single();
+    if (ac) {
+      affiliate = ac;
+      discountPct = ac.discount_pct || 0;
+    }
+  }
+
+  let serverTotal, serverCart;
+  try {
+    const { subtotal, priced } = priceCart(cart);
+    serverTotal = applyDiscount(subtotal, discountPct);
+    serverCart = cart.map((it, i) => ({ ...it, price: priced[i].unitPrice }));
+  } catch (e) {
+    return res.status(400).json({ error: `Pricing error: ${e.message}` });
+  }
+  if (Math.abs(Number(total) - serverTotal) > 0.01) {
+    console.warn(`send-order: total mismatch — client ${total} vs server ${serverTotal}`);
+    return res.status(400).json({ error: "Order total mismatch" });
+  }
+
+  // Idempotency: one on-chain txHash maps to exactly one order. If we've already
+  // recorded it (double-submit, retry, replay), return the existing order. The
+  // UNIQUE(payment_ref) constraint is the race-safe backstop.
   const { data: existing } = await supabase
     .from("orders")
-    .select("id")
+    .select("id, payment_status")
     .eq("payment_ref", txHash)
     .maybeSingle();
   if (existing) {
-    return res.json({ ok: true, orderId: existing.id, duplicate: true });
+    return res.json({ ok: true, orderId: existing.id, paymentStatus: existing.payment_status, duplicate: true });
   }
+
+  // --- On-chain verification. A just-broadcast tx is usually unmined here, so
+  // 'pending' is normal; the cron reconciles it later. A clear 'mismatch'
+  // (wrong recipient / reverted / underpaid) is rejected outright. ---
+  const ethUsdPrice = paymentMethod === "eth" ? await fetchEthUsd() : null;
+  const verification = await verifyPayment({
+    txHash,
+    paymentMethod,
+    expectedUsd: serverTotal,
+    ethUsdPrice,
+  });
+  if (verification.status === "mismatch") {
+    console.warn(`send-order: payment mismatch for ${txHash} — ${verification.detail}`);
+    return res.status(400).json({ error: "Payment could not be verified" });
+  }
+  const paymentStatus = verification.status; // verified | pending | unverified
 
   const { data: inserted, error: insertError } = await supabase
     .from("orders")
@@ -76,8 +123,9 @@ export default async function handler(req, res) {
       payment_method: paymentMethod,
       payment_ref: txHash,
       status: "pending",
-      items: cart,
-      total_usd: Number(total),
+      payment_status: paymentStatus,
+      items: serverCart,
+      total_usd: serverTotal,
       shipping_info: shipping,
     })
     .select("id")
@@ -88,10 +136,10 @@ export default async function handler(req, res) {
     if (insertError.code === "23505") {
       const { data: dup } = await supabase
         .from("orders")
-        .select("id")
+        .select("id, payment_status")
         .eq("payment_ref", txHash)
         .maybeSingle();
-      if (dup) return res.json({ ok: true, orderId: dup.id, duplicate: true });
+      if (dup) return res.json({ ok: true, orderId: dup.id, paymentStatus: dup.payment_status, duplicate: true });
     }
     console.error("Supabase insert error:", insertError.message);
     return res.status(500).json({ error: "Could not record order" });
@@ -99,69 +147,41 @@ export default async function handler(req, res) {
 
   const orderId = inserted.id;
 
-  // Consume affiliate code with an optimistic lock (TOCTOU-safe): read
-  // uses_remaining, then UPDATE only if it hasn't changed in the meantime.
-  if (promoCode) {
+  // Consume affiliate code with an optimistic lock (TOCTOU-safe).
+  if (affiliate) {
     try {
-      const { data: ac } = await supabase
+      const newUses = Math.max(0, affiliate.uses_remaining - 1);
+      await supabase
         .from("affiliate_codes")
-        .select("id, uses_remaining")
-        .eq("code", promoCode.toUpperCase().trim())
-        .gt("uses_remaining", 0)
-        .single();
-      if (ac) {
-        const newUses = Math.max(0, ac.uses_remaining - 1);
-        await supabase
-          .from("affiliate_codes")
-          .update({ uses_remaining: newUses, is_active: newUses > 0 })
-          .eq("id", ac.id)
-          .eq("uses_remaining", ac.uses_remaining); // only if still unchanged
-      }
+        .update({ uses_remaining: newUses, is_active: newUses > 0 })
+        .eq("id", affiliate.id)
+        .eq("uses_remaining", affiliate.uses_remaining); // only if still unchanged
     } catch (err) {
       console.error("Affiliate consume error:", err);
     }
   }
 
-  // Decrement stock for each ordered product. Subscription line items carry the
-  // real product id in `productId` (their `id` is a synthetic `sub-...` string).
-  try {
-    await Promise.all(
-      cart
-        .map((item) => ({
-          pid: typeof item.productId === "number" ? item.productId : item.id,
-          qty: parseInt(item.qty) || 1,
-        }))
-        .filter((x) => typeof x.pid === "number")
-        .map(async ({ pid, qty }) => {
-          const { data: stock } = await supabase
-            .from("product_stock")
-            .select("quantity")
-            .eq("product_id", pid)
-            .single();
-          if (stock) {
-            const newQty = Math.max(0, (stock.quantity || 0) - qty);
-            const stockUpdate = { quantity: newQty };
-            if (newQty === 0) stockUpdate.stock_status = "out_of_stock";
-            await supabase
-              .from("product_stock")
-              .update(stockUpdate)
-              .eq("product_id", pid);
-          }
-        })
-    );
-  } catch (err) {
-    console.error("Stock decrement error:", err);
+  // Decrement stock now only when the payment is verified, or when verification
+  // is unavailable (no RPC → legacy behaviour). 'pending' orders defer their
+  // stock decrement to the cron once the tx confirms — this prevents a fake
+  // txHash from draining inventory.
+  if (paymentStatus === "verified" || paymentStatus === "unverified") {
+    try {
+      await decrementStock(supabase, serverCart);
+    } catch (err) {
+      console.error("Stock decrement error:", err);
+    }
   }
 
   // --- Best-effort confirmation emails. The order is saved; email failure must
-  // NOT fail the request (the client already shows success on a saved order). ---
+  // NOT fail the request. ---
   if (process.env.RESEND_API_KEY && process.env.ORDER_EMAIL) {
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
       const from = process.env.EMAIL_FROM || "onboarding@resend.dev";
       const etherscanUrl = `https://etherscan.io/tx/${txHash}`;
 
-      const itemRows = cart
+      const itemRows = serverCart
         .map(
           (i) =>
             `<tr>
@@ -179,7 +199,7 @@ export default async function handler(req, res) {
         <html>
         <body style="font-family:Arial,sans-serif;background:#111;color:#eee;padding:32px;max-width:600px;margin:0 auto;">
           <h1 style="color:#D4AF37;font-size:22px;margin-bottom:4px;">New Order — Ace Peptides</h1>
-          <p style="color:#888;font-size:13px;margin-top:0;">Total: <strong style="color:#D4AF37;">$${Number(total).toFixed(2)} USD</strong></p>
+          <p style="color:#888;font-size:13px;margin-top:0;">Total: <strong style="color:#D4AF37;">$${serverTotal.toFixed(2)} USD</strong> · Payment: <strong style="color:#D4AF37;">${esc(paymentStatus)}</strong></p>
 
           <h3 style="color:#D4AF37;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Items</h3>
           <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
@@ -194,7 +214,7 @@ export default async function handler(req, res) {
             <tfoot>
               <tr>
                 <td colspan="2" style="padding:12px 12px;text-align:right;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Total</td>
-                <td style="padding:12px 12px;text-align:right;color:#D4AF37;font-size:18px;font-weight:bold;">$${Number(total).toFixed(2)}</td>
+                <td style="padding:12px 12px;text-align:right;color:#D4AF37;font-size:18px;font-weight:bold;">$${serverTotal.toFixed(2)}</td>
               </tr>
             </tfoot>
           </table>
@@ -212,7 +232,7 @@ export default async function handler(req, res) {
           <div style="background:#1a1a1a;padding:16px;font-size:12px;word-break:break-all;margin-bottom:8px;">
             <a href="${esc(etherscanUrl)}" style="color:#D4AF37;">${esc(txHash)}</a>
           </div>
-          <p style="font-size:11px;color:#555;">Verify on <a href="${esc(etherscanUrl)}" style="color:#888;">Etherscan</a></p>
+          <p style="font-size:11px;color:#555;">Status: <strong>${esc(paymentStatus)}</strong> — verify on <a href="${esc(etherscanUrl)}" style="color:#888;">Etherscan</a> before shipping if not yet verified.</p>
         </body>
         </html>
       `;
@@ -230,7 +250,7 @@ export default async function handler(req, res) {
             <tfoot>
               <tr>
                 <td colspan="2" style="padding:12px 12px;text-align:right;color:#888;font-size:12px;">Total</td>
-                <td style="padding:12px 12px;text-align:right;color:#D4AF37;font-size:18px;font-weight:bold;">$${Number(total).toFixed(2)}</td>
+                <td style="padding:12px 12px;text-align:right;color:#D4AF37;font-size:18px;font-weight:bold;">$${serverTotal.toFixed(2)}</td>
               </tr>
             </tfoot>
           </table>
@@ -253,7 +273,7 @@ export default async function handler(req, res) {
         resend.emails.send({
           from,
           to: process.env.ORDER_EMAIL,
-          subject: `New Order $${Number(total).toFixed(2)} — ${shipping.name.slice(0, 60)}`,
+          subject: `New Order $${serverTotal.toFixed(2)} (${paymentStatus}) — ${shipping.name.slice(0, 60)}`,
           html: operatorHtml,
         }),
         resend.emails.send({
@@ -270,5 +290,5 @@ export default async function handler(req, res) {
     console.warn("RESEND_API_KEY/ORDER_EMAIL not set — order saved, skipping confirmation emails");
   }
 
-  return res.json({ ok: true, orderId });
+  return res.json({ ok: true, orderId, paymentStatus });
 }
