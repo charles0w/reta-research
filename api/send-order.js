@@ -3,6 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import { priceCart, applyDiscount } from "./_catalog.js";
 import { verifyPayment } from "./_verifyPayment.js";
 import { decrementStock, fetchEthUsd } from "./_fulfill.js";
+import { checkRateLimit, getClientIp } from "./_rateLimit.js";
+
+const SEND_ORDER_RATE = { max: 5, windowMs: 15 * 60 * 1000 };
 
 const esc = (s) =>
   String(s ?? "")
@@ -15,12 +18,19 @@ const esc = (s) =>
 const TX_RE = /^0x[0-9a-fA-F]{64}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const ALLOWED_PAYMENT_METHODS = ["eth", "usdc"];
+const MAX_CART_ITEMS = 20;
+const MAX_ITEM_QTY = 100;
+
 function validateBody(body) {
-  const { cart, shipping, txHash, total } = body;
+  const { cart, shipping, txHash, total, paymentMethod = "eth", promoCode } = body;
 
   if (!Array.isArray(cart) || cart.length === 0) return "Invalid cart";
+  if (cart.length > MAX_CART_ITEMS) return "Too many cart items";
   if (typeof total !== "number" || total <= 0) return "Invalid total";
   if (!TX_RE.test(txHash)) return "Invalid txHash";
+  if (!ALLOWED_PAYMENT_METHODS.includes(paymentMethod)) return "Invalid payment method";
+  if (promoCode !== undefined && (typeof promoCode !== "string" || promoCode.length > 50)) return "Invalid promo code";
 
   const required = ["name", "email", "address", "city", "state", "zip", "country"];
   for (const k of required) {
@@ -31,7 +41,7 @@ function validateBody(body) {
 
   for (const item of cart) {
     if (typeof item.name !== "string") return "Invalid cart item name";
-    if (typeof item.qty !== "number" || item.qty < 1) return "Invalid cart item qty";
+    if (typeof item.qty !== "number" || item.qty < 1 || item.qty > MAX_ITEM_QTY) return "Invalid cart item qty";
     if (typeof item.price !== "number" || item.price < 0) return "Invalid cart item price";
   }
 
@@ -40,6 +50,13 @@ function validateBody(body) {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
+
+  const ip = getClientIp(req);
+  const rl = checkRateLimit(`send-order:${ip}`, SEND_ORDER_RATE);
+  if (!rl.ok) {
+    res.setHeader("Retry-After", String(rl.retryAfter));
+    return res.status(429).json({ error: "Too many requests" });
+  }
 
   const error = validateBody(req.body);
   if (error) return res.status(400).json({ error });
@@ -81,8 +98,8 @@ export default async function handler(req, res) {
     const { subtotal, priced } = priceCart(cart);
     serverTotal = applyDiscount(subtotal, discountPct);
     serverCart = cart.map((it, i) => ({ ...it, price: priced[i].unitPrice }));
-  } catch (e) {
-    return res.status(400).json({ error: `Pricing error: ${e.message}` });
+  } catch {
+    return res.status(400).json({ error: "Invalid cart items" });
   }
   if (Math.abs(Number(total) - serverTotal) > 0.01) {
     console.warn(`send-order: total mismatch — client ${total} vs server ${serverTotal}`);
@@ -147,25 +164,31 @@ export default async function handler(req, res) {
 
   const orderId = inserted.id;
 
-  // Consume affiliate code with an optimistic lock (TOCTOU-safe).
+  // Consume affiliate code atomically via DB-level lock (migration 0005).
+  // Falls back to an optimistic update if the RPC is not yet deployed.
   if (affiliate) {
     try {
-      const newUses = Math.max(0, affiliate.uses_remaining - 1);
-      await supabase
-        .from("affiliate_codes")
-        .update({ uses_remaining: newUses, is_active: newUses > 0 })
-        .eq("id", affiliate.id)
-        .eq("uses_remaining", affiliate.uses_remaining); // only if still unchanged
-    } catch (err) {
-      console.error("Affiliate consume error:", err);
+      const { data: consumed } = await supabase.rpc("consume_affiliate_code", { p_id: affiliate.id });
+      if (!consumed) {
+        console.warn(`send-order: affiliate code ${affiliate.id} already exhausted`);
+      }
+    } catch {
+      try {
+        const newUses = Math.max(0, affiliate.uses_remaining - 1);
+        await supabase
+          .from("affiliate_codes")
+          .update({ uses_remaining: newUses, is_active: newUses > 0 })
+          .eq("id", affiliate.id)
+          .eq("uses_remaining", affiliate.uses_remaining);
+      } catch (err2) {
+        console.error("Affiliate consume error:", err2);
+      }
     }
   }
 
-  // Decrement stock now only when the payment is verified, or when verification
-  // is unavailable (no RPC → legacy behaviour). 'pending' orders defer their
-  // stock decrement to the cron once the tx confirms — this prevents a fake
-  // txHash from draining inventory.
-  if (paymentStatus === "verified" || paymentStatus === "unverified") {
+  // Decrement stock only when the payment is on-chain verified.
+  // 'pending' orders defer their stock decrement to the cron once the tx confirms.
+  if (paymentStatus === "verified") {
     try {
       await decrementStock(supabase, serverCart);
     } catch (err) {
@@ -269,20 +292,25 @@ export default async function handler(req, res) {
         </html>
       `;
 
-      await Promise.all([
+      const emailTasks = [
         resend.emails.send({
           from,
           to: process.env.ORDER_EMAIL,
           subject: `New Order $${serverTotal.toFixed(2)} (${paymentStatus}) — ${shipping.name.slice(0, 60)}`,
           html: operatorHtml,
         }),
-        resend.emails.send({
-          from,
-          to: shipping.email,
-          subject: "Order Confirmed — Ace Peptides",
-          html: customerHtml,
-        }),
-      ]);
+      ];
+      if (paymentStatus === "verified") {
+        emailTasks.push(
+          resend.emails.send({
+            from,
+            to: shipping.email,
+            subject: "Order Confirmed — Ace Peptides",
+            html: customerHtml,
+          })
+        );
+      }
+      await Promise.all(emailTasks);
     } catch (err) {
       console.error("Email send error:", err);
     }

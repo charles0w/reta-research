@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { requireAdmin, issueToken } from "../_adminAuth.js";
+import { requireLogin, issueToken } from "../_adminAuth.js";
 
 // Exchanges the admin password for a short-lived session token. Clients can then
 // send `Authorization: Bearer <token>` instead of replaying the password.
@@ -13,7 +13,7 @@ export default async function handler(req, res) {
         })
       : null;
 
-  const auth = await requireAdmin(req, supabase);
+  const auth = await requireLogin(req, supabase);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   return res.json({ ok: true, token: issueToken() });

@@ -1,8 +1,8 @@
 // On-chain payment verification via a standard Ethereum JSON-RPC endpoint.
 //
 // Set ETH_RPC_URL to a mainnet JSON-RPC URL (Alchemy / Infura / QuickNode / your
-// own node). Without it, verification is skipped and orders are recorded as
-// 'unverified' (the pre-existing behaviour, but now explicitly flagged).
+// own node). Without it, orders are held as 'pending' and the cron reconciler
+// will attempt verification once the URL is configured.
 //
 // Because the client POSTs the order immediately after the wallet returns the
 // tx hash — i.e. BEFORE the tx is mined — a freshly-submitted payment is almost
@@ -16,6 +16,8 @@ const USDC_CONTRACT = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"; // mainnet U
 // keccak256("Transfer(address,address,uint256)")
 const TRANSFER_TOPIC =
   "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+
+const CONFIRMATION_DEPTH = Math.max(1, parseInt(process.env.CONFIRMATION_DEPTH || "12", 10));
 
 async function rpc(method, params) {
   const res = await fetch(process.env.ETH_RPC_URL, {
@@ -32,12 +34,14 @@ const topicToAddress = (t) => "0x" + t.slice(26).toLowerCase();
 
 // Verify that txHash is a confirmed payment of >= expectedUsd to RECIPIENT.
 // Returns one of:
-//   { status: 'unverified' }        - no RPC configured (cannot check)
-//   { status: 'pending', detail }   - tx not mined yet / not found / no ETH price
-//   { status: 'verified', detail }  - mined, correct recipient & sufficient amount
+//   { status: 'pending', detail }   - tx not mined / insufficient confirmations / RPC not configured
+//   { status: 'verified', detail }  - mined, confirmed, correct recipient & sufficient amount
 //   { status: 'mismatch', detail }  - mined but wrong recipient / reverted / underpaid
 export async function verifyPayment({ txHash, paymentMethod, expectedUsd, ethUsdPrice }) {
-  if (!process.env.ETH_RPC_URL) return { status: "unverified" };
+  if (!process.env.ETH_RPC_URL) {
+    console.error("_verifyPayment: ETH_RPC_URL not configured — order held as pending for cron reconciliation");
+    return { status: "pending", detail: "RPC not configured" };
+  }
 
   let receipt;
   try {
@@ -46,6 +50,21 @@ export async function verifyPayment({ txHash, paymentMethod, expectedUsd, ethUsd
     return { status: "pending", detail: `receipt error: ${e.message}` };
   }
   if (!receipt) return { status: "pending", detail: "not yet mined" };
+
+  // Require enough confirmations before treating the tx as final.
+  if (receipt.blockNumber) {
+    let latestBlock;
+    try {
+      latestBlock = await rpc("eth_blockNumber", []);
+    } catch {
+      return { status: "pending", detail: "could not fetch latest block" };
+    }
+    const confirmations = Number(BigInt(latestBlock) - BigInt(receipt.blockNumber));
+    if (confirmations < CONFIRMATION_DEPTH) {
+      return { status: "pending", detail: `${confirmations}/${CONFIRMATION_DEPTH} confirmations` };
+    }
+  }
+
   if (receipt.status && receipt.status !== "0x1") return { status: "mismatch", detail: "tx reverted" };
 
   if (paymentMethod === "usdc") {
@@ -55,6 +74,8 @@ export async function verifyPayment({ txHash, paymentMethod, expectedUsd, ethUsd
         l.address.toLowerCase() === USDC_CONTRACT &&
         l.topics &&
         l.topics[0] === TRANSFER_TOPIC &&
+        l.topics[1] &&
+        topicToAddress(l.topics[1]) !== "0x0000000000000000000000000000000000000000" &&
         l.topics[2] &&
         topicToAddress(l.topics[2]) === RECIPIENT
     );
@@ -80,10 +101,8 @@ export async function verifyPayment({ txHash, paymentMethod, expectedUsd, ethUsd
   if (!price) return { status: "pending", detail: "no ETH price for valuation" };
   const eth = Number(BigInt(tx.value || "0x0")) / 1e18;
   const paidUsd = eth * price;
-  // Generous tolerance: ETH/USD drifts between the client quote and on-chain
-  // confirmation. Block gross underpayment (e.g. the total=0.01 exploit) while
-  // not rejecting legitimate orders caught by normal rate movement.
-  if (paidUsd < expectedUsd * 0.9) {
+  // 3% tolerance accommodates normal ETH/USD movement between client quote and confirmation.
+  if (paidUsd < expectedUsd * 0.97) {
     return { status: "mismatch", detail: `underpaid: ~$${paidUsd.toFixed(2)} < $${expectedUsd}` };
   }
   return { status: "verified", detail: `ETH ${eth} ~ $${paidUsd.toFixed(2)}` };

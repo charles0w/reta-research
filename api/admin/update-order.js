@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { requireAdmin } from "../_adminAuth.js";
 
 const VALID_STATUSES = ["pending", "shipped", "delivered", "cancelled"];
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const esc = (s) => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 
@@ -20,14 +21,14 @@ export default async function handler(req, res) {
   const auth = await requireAdmin(req, supabase);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
-  if (!id || !VALID_STATUSES.includes(status)) {
+  if (!id || !UUID_RE.test(id) || !VALID_STATUSES.includes(status)) {
     return res.status(400).json({ error: "Invalid id or status" });
   }
 
   // Build update payload
   const payload = { status };
   if (typeof tracking_number === "string" && tracking_number.trim() !== "") {
-    payload.tracking_number = tracking_number.trim();
+    payload.tracking_number = tracking_number.trim().slice(0, 200);
   }
 
   const { error } = await supabase
@@ -35,7 +36,7 @@ export default async function handler(req, res) {
     .update(payload)
     .eq("id", id);
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: "Internal server error" });
 
   // Send customer email for shipped or delivered
   if (status === "shipped" || status === "delivered") {
