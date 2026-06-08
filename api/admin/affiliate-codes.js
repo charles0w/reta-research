@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "../_adminAuth.js";
 import { randomInt } from "crypto";
 
 function generateCode() {
@@ -14,17 +15,16 @@ function generateCode() {
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  const { password, action, code_id, label, uses = 1, discount_pct = 10 } = req.body || {};
-
-  if (!password || password !== process.env.ADMIN_SECRET) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const { action, code_id, label, uses = 1, discount_pct = 10 } = req.body || {};
 
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY,
     { auth: { persistSession: false } }
   );
+
+  const auth = await requireAdmin(req, supabase);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   // Generate a new code
   if (action === "generate") {
@@ -36,7 +36,7 @@ export default async function handler(req, res) {
       .insert({ code, discount_pct: disc, uses_remaining: qty, uses_total: qty, label: label || null })
       .select()
       .single();
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) return res.status(500).json({ error: "Internal server error" });
     return res.json({ code: data });
   }
 
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
       .from("affiliate_codes")
       .update({ is_active: false })
       .eq("id", code_id);
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) return res.status(500).json({ error: "Internal server error" });
     return res.json({ ok: true });
   }
 
@@ -55,6 +55,6 @@ export default async function handler(req, res) {
     .from("affiliate_codes")
     .select("*")
     .order("created_at", { ascending: false });
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: "Internal server error" });
   res.json({ codes: data });
 }

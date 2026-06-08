@@ -1,13 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "../_adminAuth.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
-
-  const { password } = req.body || {};
-
-  if (!password || password !== process.env.ADMIN_SECRET) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
 
   const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -15,12 +10,15 @@ export default async function handler(req, res) {
     { auth: { persistSession: false } }
   );
 
+  const auth = await requireAdmin(req, supabase);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
   const { data: orders, error } = await supabase
     .from("orders")
     .select("*")
     .order("created_at", { ascending: false });
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return res.status(500).json({ error: "Internal server error" });
 
   // Aggregate orders by email
   const customerMap = {};

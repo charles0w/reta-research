@@ -15,6 +15,16 @@ const STOCK = {
   out_of_stock: { color: "#B04040", bg: "rgba(176,64,64,0.15)",   label: "Out of Stock" },
 };
 
+// On-chain payment verification state (set by api/send-order.js + the cron).
+// Only "Paid ✓" orders should be shipped.
+const PAYMENT_STATUS = {
+  verified:     { color: "#70a870", bg: "rgba(80,128,80,0.15)",   label: "Paid ✓"     },
+  pending:      { color: "#B87333", bg: "rgba(184,115,51,0.15)",  label: "Verifying"  },
+  unverified:   { color: "#7A7A72", bg: "rgba(122,122,114,0.15)", label: "Unverified" },
+  mismatch:     { color: "#B04040", bg: "rgba(176,64,64,0.15)",   label: "Mismatch"   },
+  expired:      { color: "#B04040", bg: "rgba(176,64,64,0.15)",   label: "Expired"    },
+};
+
 const TABS = ["orders", "customers", "inventory", "affiliates", "subscribers", "analytics"];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -174,6 +184,7 @@ function OrdersTab({ orders, pw, updating, setUpdating, setOrders, loadTab }) {
               </div>
               <div style={{ display: "flex", gap: 14, alignItems: "center", flexShrink: 0 }}>
                 <span className="cinzel gold" style={{ fontSize: 16 }}>{fmtMoney(order.total_usd)}</span>
+                {order.payment_status && <StatusBadge status={order.payment_status} map={PAYMENT_STATUS} />}
                 <StatusBadge status={order.status} />
                 <span style={{ color: "#3A3A32", fontSize: 11 }}>{open ? "▲" : "▼"}</span>
               </div>
@@ -212,6 +223,11 @@ function OrdersTab({ orders, pw, updating, setUpdating, setOrders, loadTab }) {
                 <div>
                   <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: ".18em", textTransform: "uppercase", fontWeight: 700, marginBottom: 10 }}>Payment</div>
                   <div style={{ fontSize: 10, color: "#5A5A52", textTransform: "uppercase", letterSpacing: ".12em", marginBottom: 6 }}>{order.payment_method}</div>
+                  {order.payment_status && (
+                    <div style={{ marginBottom: 8 }}>
+                      <StatusBadge status={order.payment_status} map={PAYMENT_STATUS} />
+                    </div>
+                  )}
                   {order.payment_ref && (
                     <a href={`https://etherscan.io/tx/${order.payment_ref}`} target="_blank" rel="noopener noreferrer"
                       style={{ fontSize: 10, color: "#D4AF37", fontFamily: "monospace", wordBreak: "break-all" }}>
@@ -225,6 +241,11 @@ function OrdersTab({ orders, pw, updating, setUpdating, setOrders, loadTab }) {
                     </div>
                   )}
                   <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 8 }}>
+                    {order.payment_status && order.payment_status !== "verified" && order.status === "pending" && (
+                      <div style={{ fontSize: 10, color: "#B04040", lineHeight: 1.5 }}>
+                        ⚠ Payment not verified — confirm on Etherscan before shipping.
+                      </div>
+                    )}
                     {order.status === "pending" && (
                       shippingOrder === order.id ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
