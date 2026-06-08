@@ -2,12 +2,29 @@
 // payment is verified or verification is unavailable) and api/cron/verify-orders.js
 // (when a previously 'pending' order is confirmed on-chain).
 
+// Atomically decrement a single product's stock. Prefers the oversell-safe
+// Postgres RPC (db/migrations/0003); falls back to a non-atomic read-modify-write
+// if the RPC isn't present yet (e.g. migration not applied), so there is no
+// regression window before the migration runs.
+async function decrementOne(supabase, pid, qty) {
+  const { error } = await supabase.rpc("decrement_stock", { p_product_id: pid, p_qty: qty });
+  if (!error) return;
+  console.warn(`decrement_stock RPC unavailable for ${pid} (${error.message}); using fallback`);
+  const { data: stock } = await supabase
+    .from("product_stock")
+    .select("quantity")
+    .eq("product_id", pid)
+    .single();
+  if (stock) {
+    const newQty = Math.max(0, (stock.quantity || 0) - qty);
+    const update = { quantity: newQty };
+    if (newQty === 0) update.stock_status = "out_of_stock";
+    await supabase.from("product_stock").update(update).eq("product_id", pid);
+  }
+}
+
 // Decrement product_stock for each ordered line. Subscription lines carry the
 // real product id in `productId`; regular lines use the numeric `id`.
-//
-// NOTE: this is a non-atomic read-modify-write and can oversell under heavy
-// concurrency. A Postgres RPC (UPDATE ... WHERE quantity >= $qty) is the proper
-// fix — tracked as a follow-up.
 export async function decrementStock(supabase, items) {
   await Promise.all(
     (items || [])
@@ -16,19 +33,7 @@ export async function decrementStock(supabase, items) {
         qty: parseInt(item.qty, 10) || 1,
       }))
       .filter((x) => typeof x.pid === "number")
-      .map(async ({ pid, qty }) => {
-        const { data: stock } = await supabase
-          .from("product_stock")
-          .select("quantity")
-          .eq("product_id", pid)
-          .single();
-        if (stock) {
-          const newQty = Math.max(0, (stock.quantity || 0) - qty);
-          const update = { quantity: newQty };
-          if (newQty === 0) update.stock_status = "out_of_stock";
-          await supabase.from("product_stock").update(update).eq("product_id", pid);
-        }
-      })
+      .map(({ pid, qty }) => decrementOne(supabase, pid, qty))
   );
 }
 
