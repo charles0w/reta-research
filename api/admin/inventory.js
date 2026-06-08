@@ -1,21 +1,21 @@
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "../_adminAuth.js";
 
 const VALID_STATUSES = ["in_stock", "low", "out_of_stock"];
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  const { password, product_id, stock_status, quantity } = req.body || {};
-
-  if (!password || password !== process.env.ADMIN_SECRET) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const { product_id, stock_status, quantity } = req.body || {};
 
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY,
     { auth: { persistSession: false } }
   );
+
+  const auth = await requireAdmin(req, supabase);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   // Update stock_status
   if (product_id !== undefined && stock_status !== undefined) {
