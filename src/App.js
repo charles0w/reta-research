@@ -415,7 +415,41 @@ const SUB_TIERS = [
 
 export default function App() {
   const [section, setSection] = useState("products");
-  const [cart, setCart] = useState([]);
+  // Cart survives refreshes — an accidental reload mid-checkout shouldn't empty it.
+  const [cart, setCart] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("ace_cart_v1") || "[]");
+      return Array.isArray(saved) ? saved : [];
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("ace_cart_v1", JSON.stringify(cart)); } catch {}
+  }, [cart]);
+
+  // Recover stranded orders: if a past payment went through but the order save
+  // failed, the payload was stashed in localStorage (see submitOrder). Retry on
+  // load — the server is idempotent on txHash, so duplicates are impossible.
+  useEffect(() => {
+    (async () => {
+      const keys = Object.keys(localStorage).filter((k) => k.startsWith("ace_pending_order_"));
+      for (const key of keys) {
+        try {
+          const payload = JSON.parse(localStorage.getItem(key));
+          const res = await fetch("/api/send-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.ok) localStorage.removeItem(key);
+        } catch {
+          /* still offline or server down — keep the stash for next visit */
+        }
+      }
+    })();
+  }, []);
   const [openFaq, setOpenFaq] = useState(null);
   const [walletAddress, setWalletAddress] = useState(null);
   const [txHash, setTxHash] = useState(null);
@@ -437,6 +471,7 @@ export default function App() {
   // Post-payment success
   const [paid, setPaid] = useState(false);
   const [orderWarning, setOrderWarning] = useState(false);
+  const [orderInfo, setOrderInfo] = useState(null); // { orderId, paymentStatus }
 
   // Manual "pay from any wallet or exchange" flow: send to our address from
   // anywhere (Coinbase app, Kraken, mobile wallet), then paste the tx hash.
@@ -578,6 +613,7 @@ export default function App() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok || !data.orderId) throw new Error(data.error || "Order not recorded");
+      setOrderInfo({ orderId: data.orderId, paymentStatus: data.paymentStatus });
       return true;
     } catch (err) {
       try {
@@ -707,6 +743,7 @@ export default function App() {
         setPaymentLoading(false);
         return;
       }
+      setOrderInfo({ orderId: data.orderId, paymentStatus: data.paymentStatus });
       setTxHash(tx);
       setOrderWarning(false);
       setPaid(true);
@@ -1587,6 +1624,11 @@ export default function App() {
               <div className="empty-cart" style={{ textAlign: "center", padding: "72px 0" }}>
                 <div className="gold-text" style={{ fontFamily: "'Cinzel', serif", fontSize: 44, marginBottom: 16 }}>◈</div>
                 <h3 style={{ fontFamily: "'Cinzel', serif", fontSize: 22, fontWeight: 400, letterSpacing: "0.08em", marginBottom: 14 }}>Order Received</h3>
+                {orderInfo?.orderId && (
+                  <div style={{ fontSize: 11, color: "#D4AF37", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 14 }}>
+                    Order #{String(orderInfo.orderId).slice(0, 8).toUpperCase()}
+                  </div>
+                )}
                 <p style={{ fontSize: 13, color: "#5A5A52", lineHeight: 1.8, marginBottom: 8, maxWidth: 400, margin: "0 auto 10px" }}>
                   Payment sent. We'll ship to <strong style={{ color: "#F0EFE8" }}>{ship.name}</strong> within 1–2 business days.
                 </p>
@@ -1595,15 +1637,19 @@ export default function App() {
                     Your payment went through, but we hit a snag recording the order. Please email{" "}
                     <strong style={{ color: "#F0EFE8" }}>support@ace-peptides.com</strong> with the transaction hash below and we'll confirm your shipment right away.
                   </p>
-                ) : (
+                ) : orderInfo?.paymentStatus === "verified" ? (
                   <p style={{ fontSize: 12, color: "#4A4A42", marginBottom: 24 }}>
                     Confirmation sent to {ship.email}.
+                  </p>
+                ) : (
+                  <p style={{ fontSize: 12, color: "#4A4A42", lineHeight: 1.7, maxWidth: 420, margin: "0 auto 24px" }}>
+                    Your payment is confirming on-chain — we'll email your confirmation to {ship.email} once it clears (usually within the hour).
                   </p>
                 )}
                 <div style={{ fontFamily: "monospace", fontSize: 10, color: "#3A3A32", wordBreak: "break-all", maxWidth: 480, margin: "0 auto 32px", padding: "12px 16px", border: "1px solid rgba(212,175,55,0.1)" }}>
                   Tx: {txHash}
                 </div>
-                <button className="btn-outline-gold" onClick={() => { setPaid(false); setOrderWarning(false); setTxHash(null); setSection("products"); }}>
+                <button className="btn-outline-gold" onClick={() => { setPaid(false); setOrderWarning(false); setTxHash(null); setOrderInfo(null); setSection("products"); }}>
                   Continue Shopping
                 </button>
               </div>

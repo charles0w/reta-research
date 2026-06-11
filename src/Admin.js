@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -134,6 +134,32 @@ function OrdersTab({ orders, token, updating, setUpdating, setOrders, loadTab })
   const pending  = orders.filter((o) => o.status === "pending").length;
   const filtered = filter === "all" ? orders : orders.filter((o) => o.status === filter);
 
+  // Subscription renewals are manual (orders are one-time discounted purchases),
+  // so surface when each subscriber's next shipment is due. Cadence comes from
+  // the sub line-item id: sub-<tier>-<productId>.
+  const CADENCE_DAYS = { quarterly: 90, bimonthly: 60, monthly: 30 };
+  const now = Date.now();
+  const renewals = orders
+    .filter((o) => o.status !== "cancelled" && !["mismatch", "expired"].includes(o.payment_status))
+    .flatMap((o) =>
+      (o.items || [])
+        .filter((it) => typeof it.id === "string" && it.id.startsWith("sub-"))
+        .map((it) => {
+          const tier = it.id.split("-")[1];
+          const due = new Date(o.created_at).getTime() + (CADENCE_DAYS[tier] || 30) * 86400000;
+          return {
+            key: `${o.id}-${it.id}`,
+            customer: o.shipping_info?.name || "—",
+            email: o.shipping_info?.email,
+            product: it.name,
+            due,
+            overdue: due < now,
+            dueSoon: due - now < 7 * 86400000,
+          };
+        })
+    )
+    .sort((a, b) => a.due - b.due);
+
   const updateStatus = async (id, status, trackingNumber) => {
     setUpdating(id);
     await fetch("/api/admin/update-order", {
@@ -154,6 +180,27 @@ function OrdersTab({ orders, token, updating, setUpdating, setOrders, loadTab })
         <StatCard label="Awaiting Shipment" value={pending} />
         <StatCard label="Total Revenue" value={fmtMoney(revenue)} />
       </div>
+
+      {/* Subscription renewals — manual follow-ups, soonest first */}
+      {renewals.length > 0 && (
+        <div style={{ background: "#0D0D0D", border: "1px solid rgba(212,175,55,0.14)", padding: "20px 24px", marginBottom: 28 }}>
+          <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: ".2em", textTransform: "uppercase", fontWeight: 700, marginBottom: 14 }}>
+            Subscription Renewals ({renewals.length})
+          </div>
+          {renewals.map((r) => (
+            <div key={r.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, padding: "9px 0", borderBottom: "1px solid rgba(212,175,55,0.06)", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 16, alignItems: "baseline", flexWrap: "wrap" }}>
+                <span style={{ fontSize: 13, color: "#F0EFE8" }}>{r.customer}</span>
+                <span style={{ fontSize: 11, color: "#5A5A52" }}>{r.product}</span>
+                {r.email && <a href={`mailto:${r.email}`} style={{ fontSize: 10, color: "#4A4A42" }}>{r.email}</a>}
+              </div>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: r.overdue ? "#B04040" : r.dueSoon ? "#B87333" : "#4A4A42" }}>
+                {r.overdue ? "Overdue — " : "Due "}{fmtDateShort(new Date(r.due).toISOString())}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Filter */}
       <div style={{ display: "flex", borderBottom: "1px solid rgba(212,175,55,0.08)", marginBottom: 20, overflowX: "auto" }}>
@@ -834,9 +881,11 @@ function AffiliatesTab({ affiliates, token, setAffiliates, loadTab }) {
 }
 
 export default function Admin() {
+  // Session token survives refreshes for its 12h life (sessionStorage clears
+  // when the tab closes, so it never outlives the browsing session).
   const [pw,          setPw]          = useState("");
-  const [token,       setToken]       = useState("");
-  const [authed,      setAuthed]      = useState(false);
+  const [token,       setToken]       = useState(() => sessionStorage.getItem("ace_admin_token") || "");
+  const [authed,      setAuthed]      = useState(() => !!sessionStorage.getItem("ace_admin_token"));
   const [tab,         setTab]         = useState("orders");
   const [loading,     setLoading]     = useState(false);
   const [updating,    setUpdating]    = useState(null);
@@ -879,6 +928,7 @@ export default function Admin() {
         return;
       }
       setToken(data.token);
+      try { sessionStorage.setItem("ace_admin_token", data.token); } catch {}
       const result = await loadTab("orders", data.token);
       setLoading(false);
       if (result === null) { setError("Session error. Please try again."); return; }
@@ -911,9 +961,23 @@ export default function Admin() {
     setAuthed(false);
     setPw("");
     setToken("");
+    try { sessionStorage.removeItem("ace_admin_token"); } catch {}
     setOrders(null); setCustomers(null); setAnalytics(null); setSubscribers(null); setInventory(null);
     setTab("orders");
   };
+
+  // Restore a saved session on refresh: load the first tab with the stored
+  // token; if it has expired (401), drop back to the login screen.
+  useEffect(() => {
+    if (!authed || !token || orders !== null) return;
+    (async () => {
+      setLoading(true);
+      const result = await loadTab("orders", token);
+      setLoading(false);
+      if (result === null) signOut();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Login screen ──────────────────────────────────────────────────────────
   if (!authed) {

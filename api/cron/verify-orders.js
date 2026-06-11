@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { verifyPayment } from "../_verifyPayment.js";
 import { decrementStock, fetchEthUsd } from "../_fulfill.js";
+import { sendCustomerConfirmation } from "../_emails.js";
 
 // Reconciles orders whose payment was still 'pending' at submit time (the tx had
 // not been mined yet). Flips them to 'verified' (and applies the deferred stock
@@ -37,7 +38,7 @@ export default async function handler(req, res) {
 
   const { data: pending, error } = await supabase
     .from("orders")
-    .select("id, payment_ref, payment_method, total_usd, items, created_at")
+    .select("id, payment_ref, payment_method, total_usd, items, created_at, shipping_info")
     .in("payment_status", ["pending", "unverified"])
     .limit(BATCH_SIZE);
 
@@ -75,6 +76,19 @@ export default async function handler(req, res) {
         await decrementStock(supabase, order.items);
       } catch (e) {
         console.error(`verify-orders: stock decrement failed for order ${order.id}:`, e);
+      }
+      // The customer confirmation was deferred at submit time (payment was
+      // still pending) — send it now that the payment has confirmed on-chain.
+      try {
+        await sendCustomerConfirmation({
+          orderId: order.id,
+          items: order.items,
+          totalUsd: order.total_usd,
+          txHash: order.payment_ref,
+          shipping: order.shipping_info,
+        });
+      } catch (e) {
+        console.error(`verify-orders: confirmation email failed for order ${order.id}:`, e);
       }
       summary.verified++;
     } else if (result.status === "mismatch") {
