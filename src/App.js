@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import CoinbaseWalletSDK from "@coinbase/wallet-sdk";
@@ -352,8 +353,8 @@ function CardSpread({ products, onAdd, stockMap }) {
               </div>
             </div>
 
-            {/* Bottom-right corner pip (rotated 180°) */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1, transform: "rotate(180deg)", zIndex: 1 }}>
+            {/* Bottom-right corner pip — flex-start lands visually right after the 180° rotation */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.1, transform: "rotate(180deg)", zIndex: 1 }}>
               <span style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: "#D4AF37", fontWeight: 600 }}>A</span>
               <span style={{ color: "#D4AF37", fontSize: 14, marginTop: 1 }}>♠</span>
             </div>
@@ -371,76 +372,6 @@ function CardSpread({ products, onAdd, stockMap }) {
         pointerEvents: "none",
       }}>
         {open ? "Hover a card · click to add" : "Hover to explore"}
-      </div>
-    </div>
-  );
-}
-
-// SVG vial — 80×220 viewBox, animated liquid + dose mark
-function VialVisualizer({ diluentMl, volumePerDose, doseMg }) {
-  const VIAL_MAX = 5; // mL display cap
-  const fillPct = Math.max(0, Math.min(1, diluentMl / VIAL_MAX));
-  const doseFracOfFluid = diluentMl > 0 ? Math.max(0, Math.min(1, volumePerDose / diluentMl)) : 0;
-  const glassTop = 30, glassBottom = 210;
-  const glassH = glassBottom - glassTop;
-  const liquidH = fillPct * glassH;
-  const liquidY = glassBottom - liquidH;
-  const doseY  = glassBottom - doseFracOfFluid * liquidH;
-  const showDose = diluentMl > 0 && volumePerDose > 0;
-
-  return (
-    <div className="vial-result" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 28, marginTop: 56 }}>
-      <svg width="80" height="220" viewBox="0 0 80 220" style={{ overflow: "visible" }}>
-        <defs>
-          <linearGradient id="vial-liquid" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(245,208,122,0.18)" />
-            <stop offset="100%" stopColor="rgba(212,175,55,0.42)" />
-          </linearGradient>
-          <clipPath id="vial-clip">
-            <rect x="14" y={glassTop - 2} width="52" height={glassH + 4} />
-          </clipPath>
-        </defs>
-        {/* Cap */}
-        <rect x="24" y="2" width="32" height="18" fill="#2A2A22" />
-        <rect x="20" y="18" width="40" height="10" fill="#1A1A14" />
-        {/* Glass body outline */}
-        <rect x="14" y={glassTop - 2} width="52" height={glassH + 4} fill="rgba(212,175,55,0.02)" stroke="rgba(212,175,55,0.4)" strokeWidth="1" />
-        {/* Liquid */}
-        <rect
-          x="15" y={liquidY} width="50" height={liquidH}
-          fill="url(#vial-liquid)" clipPath="url(#vial-clip)"
-          style={{ transition: "y 0.6s ease, height 0.6s ease" }}
-        />
-        {/* Highlight stripe inside glass */}
-        <line x1="20" y1={glassTop + 2} x2="20" y2={glassBottom - 6} stroke="rgba(255,255,255,0.06)" strokeWidth="2" />
-        {/* Dose mark */}
-        {showDose && (
-          <g style={{ transition: "transform 0.6s ease" }}>
-            <line x1="6" y1={doseY} x2="74" y2={doseY} stroke="#F5D07A" strokeWidth="1" strokeDasharray="3 3" />
-            <circle cx="14" cy={doseY} r="2" fill="#F5D07A" />
-            <circle cx="66" cy={doseY} r="2" fill="#F5D07A" />
-          </g>
-        )}
-      </svg>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 160 }}>
-        {showDose ? (
-          <>
-            <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: "0.2em", textTransform: "uppercase", fontWeight: 600 }}>
-              ◈ {doseMg}mg dose
-            </div>
-            <div style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: "#F0EFE8" }}>
-              {volumePerDose.toFixed(3)} mL
-            </div>
-            <div style={{ fontSize: 10, color: "#5A5A52", letterSpacing: "0.06em", lineHeight: 1.6 }}>
-              {(volumePerDose * 100).toFixed(0)} units on U-100<br />
-              {(diluentMl / volumePerDose).toFixed(1)} doses per vial
-            </div>
-          </>
-        ) : (
-          <div style={{ fontSize: 10, color: "#3A3A32", letterSpacing: "0.18em", textTransform: "uppercase" }}>
-            Enter values to visualize
-          </div>
-        )}
       </div>
     </div>
   );
@@ -477,6 +408,15 @@ export default function App() {
   const [paid, setPaid] = useState(false);
   const [orderWarning, setOrderWarning] = useState(false);
 
+  // Manual "pay from any wallet or exchange" flow: send to our address from
+  // anywhere (Coinbase app, Kraken, mobile wallet), then paste the tx hash.
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualCurrency, setManualCurrency] = useState("usdc"); // "usdc" | "eth"
+  const [manualEthQuote, setManualEthQuote] = useState(null);   // { eth, at } or "loading"
+  const [manualTxInput, setManualTxInput] = useState("");
+  const [manualError, setManualError] = useState(null);
+  const [copiedField, setCopiedField] = useState(null);         // "address" | "amount"
+
   // Promo / affiliate code
   const [promoInput, setPromoInput] = useState("");
   const [promoCode, setPromoCode] = useState(null);   // validated code string
@@ -506,12 +446,6 @@ export default function App() {
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
   const cartTotal  = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const discountedTotal = promoCode ? +(cartTotal * (1 - promoDiscount / 100)).toFixed(2) : cartTotal;
-
-  // Calculator
-  const [vialMg, setVialMg] = useState(10);
-  const [diluentMl, setDiluentMl] = useState(2);
-  const [doseMg, setDoseMg] = useState(4);
-  const [syringeMl, setSyringeMl] = useState(1);
 
   // Subscribe
   const [selectedTier, setSelectedTier] = useState(null);
@@ -578,13 +512,6 @@ export default function App() {
     setSection("cart");
   };
 
-  // Calculator-derived values
-  const concentration  = vialMg > 0 && diluentMl > 0 ? vialMg / diluentMl : 0;
-  const volumePerDose  = concentration > 0 ? doseMg / concentration : 0;
-  const unitsOnSyringe = volumePerDose * 100;
-  const dosesPerVial   = doseMg > 0 ? vialMg / doseMg : 0;
-  const exceedsSyringe = volumePerDose > syringeMl;
-  const calcReady      = vialMg > 0 && diluentMl > 0 && doseMg > 0;
 
   const connectWallet = async (provider) => {
     setWalletError(null);
@@ -696,6 +623,68 @@ export default function App() {
     } finally {
       setPaymentLoading(false);
     }
+  };
+
+  // ETH quote for the manual flow. Padded 1% so normal price movement between
+  // the quote and on-chain confirmation stays inside the server's 3% tolerance.
+  const fetchManualEthQuote = async () => {
+    setManualEthQuote("loading");
+    setManualError(null);
+    try {
+      const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
+      const data = await res.json();
+      setManualEthQuote({ eth: (discountedTotal / data.ethereum.usd) * 1.01, at: Date.now() });
+    } catch {
+      setManualEthQuote(null);
+      setManualError("Could not fetch the ETH price. Pay in USDC, or try again.");
+    }
+  };
+
+  const selectManualCurrency = (c) => {
+    setManualCurrency(c);
+    setManualError(null);
+    if (c === "eth") fetchManualEthQuote();
+  };
+
+  const copyToClipboard = async (field, value) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 1600);
+    } catch {}
+  };
+
+  // Unlike the wallet flow (where a save failure after an irreversible payment
+  // must still show success), a manual confirm can safely surface server
+  // rejections — resubmitting the same tx hash is idempotent on the server.
+  const confirmManualPayment = async () => {
+    const tx = manualTxInput.trim();
+    if (!/^0x[0-9a-fA-F]{64}$/.test(tx)) {
+      setManualError("That doesn't look like a transaction hash — it starts with 0x followed by 64 characters. Find it in your wallet or exchange's transaction history.");
+      return;
+    }
+    setPaymentLoading(true);
+    setManualError(null);
+    try {
+      const res = await fetch("/api/send-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cart, shipping: ship, txHash: tx, total: discountedTotal, paymentMethod: manualCurrency, promoCode }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        setManualError(data.error || "Could not record the order. Double-check the transaction hash and try again.");
+        setPaymentLoading(false);
+        return;
+      }
+      setTxHash(tx);
+      setOrderWarning(false);
+      setPaid(true);
+      setCart([]);
+    } catch {
+      setManualError("Network error — your payment is safe. Press confirm again in a moment.");
+    }
+    setPaymentLoading(false);
   };
 
   if (process.env.REACT_APP_KILL_SWITCH === "true") {
@@ -1084,11 +1073,6 @@ export default function App() {
           }
           .cart-row > *:last-child { align-self: flex-end; }
 
-          .vial-result {
-            flex-direction: column !important; gap: 18px !important;
-            margin-top: 40px !important;
-          }
-
           .footer-bar {
             padding: 20px 18px !important;
             flex-direction: column !important; gap: 8px; text-align: center;
@@ -1134,7 +1118,7 @@ export default function App() {
         </div>
 
         <nav className="header-nav" style={{ display: "flex", gap: 36, alignItems: "center" }}>
-          {[["products", "Products"], ["research", "Research"], ["calculator", "Calculator"], ["faq", "FAQ"], ["subscribe", "Subscribe"]].map(([key, label]) => (
+          {[["products", "Products"], ["research", "Research"], ["faq", "FAQ"], ["subscribe", "Subscribe"]].map(([key, label]) => (
             <button key={key} className={`nav-link ${section === key ? "active" : ""}`} onClick={() => setSection(key)}>
               {label}
             </button>
@@ -1277,129 +1261,6 @@ export default function App() {
                 </div>
               ))}
             </div>
-            <div style={{ marginTop: 56, padding: "18px 28px", border: "1px solid rgba(212,175,55,0.07)", fontSize: 11, color: "#3A3A32", lineHeight: 1.8, textAlign: "center" }}>
-              <strong style={{ color: "#5A5A52" }}>Disclaimer:</strong> This product is intended strictly for laboratory research purposes only. Not for human or animal consumption. Not for use in diagnostic or therapeutic applications.
-            </div>
-          </div>
-        )}
-
-        {/* ── Calculator ── */}
-        {section === "calculator" && (
-          <div className="fade-section" style={{ maxWidth: 720, margin: "0 auto" }}>
-            <div className="section-eyebrow">Tools</div>
-            <h2 className="section-h2" style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 18 }}>
-              Reconstitution Calculator
-            </h2>
-            <p className="lead-copy" style={{ fontSize: 12, color: "#5A5A52", lineHeight: 1.75, maxWidth: 520, marginBottom: 56 }}>
-              Calculate units on a U-100 insulin syringe for a target research dose. For laboratory research only — not for human use.
-            </p>
-
-            <div className="responsive-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
-              <div>
-                <label className="calc-label">Vial size (mg)</label>
-                <input
-                  className="calc-input" type="number" min="0" step="0.5"
-                  value={vialMg}
-                  onChange={(e) => setVialMg(parseFloat(e.target.value) || 0)}
-                />
-                <div className="calc-helper">Total peptide in vial (lyophilized).</div>
-              </div>
-
-              <div>
-                <label className="calc-label">Diluent volume (mL)</label>
-                <input
-                  className="calc-input" type="number" min="0" step="0.1"
-                  value={diluentMl}
-                  onChange={(e) => setDiluentMl(parseFloat(e.target.value) || 0)}
-                />
-                <div className="calc-helper">Bacteriostatic water added.</div>
-              </div>
-
-              <div>
-                <label className="calc-label">Target dose (mg)</label>
-                <input
-                  className="calc-input" type="number" min="0" step="0.1"
-                  value={doseMg}
-                  onChange={(e) => setDoseMg(parseFloat(e.target.value) || 0)}
-                />
-                <div className="calc-helper">Dose per administration.</div>
-              </div>
-
-              <div>
-                <label className="calc-label">Syringe type</label>
-                <div className="seg-group" style={{ marginTop: 4 }}>
-                  {[[1, "U-100 (1mL)"], [0.5, "U-100 (0.5mL)"], [0.3, "U-100 (0.3mL)"]].map(([v, l]) => (
-                    <button
-                      key={v} type="button"
-                      className={`seg-btn ${syringeMl === v ? "active" : ""}`}
-                      onClick={() => setSyringeMl(v)}
-                    >
-                      {l}
-                    </button>
-                  ))}
-                </div>
-                <div className="calc-helper">Insulin syringe capacity.</div>
-              </div>
-            </div>
-
-            {/* Result panel */}
-            <div className="result-panel responsive-result-panel">
-              <div className="result-cell">
-                <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 600, marginBottom: 8 }}>
-                  Concentration
-                </div>
-                <div className={calcReady ? "gold-text" : ""} style={{
-                  fontFamily: "'Cinzel', serif", fontSize: 24,
-                  color: calcReady ? undefined : "#3A3A32",
-                }}>
-                  {calcReady ? `${concentration.toFixed(2)} mg/mL` : "—"}
-                </div>
-              </div>
-              <div className="result-cell">
-                <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 600, marginBottom: 8 }}>
-                  Volume per dose
-                </div>
-                <div className={calcReady ? "gold-text" : ""} style={{
-                  fontFamily: "'Cinzel', serif", fontSize: 24,
-                  color: calcReady ? undefined : "#3A3A32",
-                }}>
-                  {calcReady ? `${volumePerDose.toFixed(3)} mL` : "—"}
-                </div>
-              </div>
-              <div className="result-cell">
-                <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 600, marginBottom: 8 }}>
-                  Units on syringe
-                </div>
-                <div
-                  className={calcReady && !exceedsSyringe ? "gold-text" : ""}
-                  style={{
-                    fontFamily: "'Cinzel', serif", fontSize: 28, fontWeight: 600,
-                    color: !calcReady ? "#3A3A32" : exceedsSyringe ? "#B04040" : undefined,
-                  }}
-                >
-                  {calcReady ? `${unitsOnSyringe.toFixed(0)} units` : "—"}
-                </div>
-                {exceedsSyringe && calcReady && (
-                  <div style={{ fontSize: 10, color: "#B04040", marginTop: 8, lineHeight: 1.5, letterSpacing: "0.02em" }}>
-                    Exceeds syringe capacity. Reduce dose or increase diluent.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {calcReady && (
-              <div style={{ marginTop: 18, fontSize: 11, color: "#5A5A52", letterSpacing: "0.02em", lineHeight: 1.7 }}>
-                Yields ~<span style={{ color: "#D4AF37", fontWeight: 600 }}>{dosesPerVial.toFixed(1)}</span> doses per vial.
-              </div>
-            )}
-
-            {/* Vial visualizer */}
-            <VialVisualizer diluentMl={diluentMl} volumePerDose={volumePerDose} doseMg={doseMg} />
-
-            <div style={{ marginTop: 28, textAlign: "center", fontSize: 10, color: "#4A4A42", letterSpacing: "0.04em" }}>
-              Visual reference only. Always verify with a calibrated scale.
-            </div>
-
             <div style={{ marginTop: 56, padding: "18px 28px", border: "1px solid rgba(212,175,55,0.07)", fontSize: 11, color: "#3A3A32", lineHeight: 1.8, textAlign: "center" }}>
               <strong style={{ color: "#5A5A52" }}>Disclaimer:</strong> This product is intended strictly for laboratory research purposes only. Not for human or animal consumption. Not for use in diagnostic or therapeutic applications.
             </div>
@@ -1789,6 +1650,120 @@ export default function App() {
                     </div>
                   )}
                   {walletError && <div className="error-msg">{walletError}</div>}
+
+                  {/* Manual payment — send from any wallet or exchange, paste the tx hash */}
+                  {!txHash && (
+                    <div style={{ marginTop: 22 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "0 0 16px" }}>
+                        <div style={{ flex: 1, height: 1, background: "rgba(212,175,55,0.12)" }} />
+                        <span style={{ fontSize: 9, color: "#4A4A42", letterSpacing: "0.18em", textTransform: "uppercase" }}>or</span>
+                        <div style={{ flex: 1, height: 1, background: "rgba(212,175,55,0.12)" }} />
+                      </div>
+
+                      {!manualOpen ? (
+                        <button className="btn-outline-gold" style={{ width: "100%", padding: 14 }} onClick={() => { setManualOpen(true); setManualError(null); }}>
+                          Pay from any wallet or exchange
+                        </button>
+                      ) : (
+                        <div style={{ border: "1px solid rgba(212,175,55,0.18)", padding: "20px 18px" }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".16em", textTransform: "uppercase", color: "#D4AF37", marginBottom: 6 }}>
+                            Pay from any wallet or exchange
+                          </div>
+                          <div style={{ fontSize: 11, color: "#5A5A52", lineHeight: 1.7, marginBottom: 14 }}>
+                            Send the exact amount from Coinbase, Kraken, or any crypto wallet, then paste the transaction hash below.
+                          </div>
+
+                          {/* Currency toggle */}
+                          <div className="seg-group" style={{ marginBottom: 14 }}>
+                            {[["usdc", "USDC — recommended"], ["eth", "ETH"]].map(([c, label]) => (
+                              <button key={c} type="button" className={`seg-btn ${manualCurrency === c ? "active" : ""}`} onClick={() => selectManualCurrency(c)}>
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Amount */}
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
+                            <span style={{ fontFamily: "'Cinzel', serif", fontSize: 22 }} className="gold-text">
+                              {manualCurrency === "usdc"
+                                ? `${discountedTotal.toFixed(2)} USDC`
+                                : manualEthQuote === "loading" || !manualEthQuote
+                                ? "…"
+                                : `${manualEthQuote.eth.toFixed(6)} ETH`}
+                            </span>
+                            <button
+                              type="button"
+                              className="btn-outline-gold"
+                              style={{ padding: "4px 10px", fontSize: 8 }}
+                              onClick={() =>
+                                manualCurrency === "usdc"
+                                  ? copyToClipboard("amount", discountedTotal.toFixed(2))
+                                  : manualEthQuote && manualEthQuote !== "loading" && copyToClipboard("amount", manualEthQuote.eth.toFixed(6))
+                              }
+                            >
+                              {copiedField === "amount" ? "Copied ✓" : "Copy amount"}
+                            </button>
+                            {manualCurrency === "eth" && (
+                              <button type="button" className="btn-outline-gold" style={{ padding: "4px 10px", fontSize: 8 }} onClick={fetchManualEthQuote}>
+                                ↻ Refresh quote
+                              </button>
+                            )}
+                          </div>
+                          {manualCurrency === "eth" && (
+                            <div style={{ fontSize: 9, color: "#4A4A42", lineHeight: 1.6, marginBottom: 10 }}>
+                              Live quote (includes a 1% buffer for price movement) — send within ~10 minutes, or refresh.
+                            </div>
+                          )}
+                          {manualCurrency === "usdc" && <div style={{ marginBottom: 10 }} />}
+
+                          {/* Network warning — funds sent on the wrong chain are unrecoverable */}
+                          <div style={{ fontSize: 10, color: "#C2873B", lineHeight: 1.7, padding: "10px 12px", border: "1px solid rgba(194,135,59,0.3)", marginBottom: 16 }}>
+                            ⚠ Send on <strong>Ethereum mainnet (ERC-20) only.</strong> Funds sent on Base, Polygon, Solana, or any other network cannot be detected or recovered.
+                          </div>
+
+                          {/* Address + QR */}
+                          <div className="responsive-grid-2" style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 18, alignItems: "center", marginBottom: 16 }}>
+                            <div style={{ background: "#F0EFE8", padding: 10, width: "fit-content" }}>
+                              <QRCodeSVG value={RECIPIENT_ADDRESS} size={128} bgColor="#F0EFE8" fgColor="#080808" />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 9, color: "#4A4A42", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 6 }}>
+                                Send to this address
+                              </div>
+                              <div style={{ fontFamily: "monospace", fontSize: 11, color: "#F0EFE8", wordBreak: "break-all", lineHeight: 1.6, marginBottom: 10 }}>
+                                {RECIPIENT_ADDRESS}
+                              </div>
+                              <button type="button" className="btn-outline-gold" style={{ padding: "6px 14px", fontSize: 8 }} onClick={() => copyToClipboard("address", RECIPIENT_ADDRESS)}>
+                                {copiedField === "address" ? "Copied ✓" : "Copy address"}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Tx hash confirm */}
+                          <label className="calc-label" style={{ marginBottom: 6, display: "block" }}>
+                            Transaction hash (from your wallet or exchange history)
+                          </label>
+                          <input
+                            className="calc-input"
+                            type="text"
+                            placeholder="0x…"
+                            value={manualTxInput}
+                            onChange={(e) => { setManualTxInput(e.target.value); setManualError(null); }}
+                            style={{ fontFamily: "monospace", fontSize: 12, marginBottom: 12 }}
+                          />
+                          <button
+                            className="btn-gold"
+                            style={{ width: "100%", padding: 15 }}
+                            onClick={confirmManualPayment}
+                            disabled={paymentLoading || (manualCurrency === "eth" && (!manualEthQuote || manualEthQuote === "loading"))}
+                          >
+                            {paymentLoading ? "Verifying…" : "I've sent it — confirm my order"}
+                          </button>
+                          {manualError && <div className="error-msg">{manualError}</div>}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ marginTop: 24, fontSize: 11, color: "#3A3A32", lineHeight: 1.75, textAlign: "center" }}>

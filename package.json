@@ -7,6 +7,7 @@
     "@supabase/supabase-js": "^2.107.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
+    "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
@@ -19,8 +20,13 @@
     "lint": "eslint src"
   },
   "eslintConfig": {
-    "extends": ["react-app"],
-    "env": { "browser": true, "es2021": true }
+    "extends": [
+      "react-app"
+    ],
+    "env": {
+      "browser": true,
+      "es2021": true
+    }
   },
   "browserslist": {
     "production": [
