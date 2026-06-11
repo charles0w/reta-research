@@ -226,6 +226,27 @@ function CardSpread({ products, onAdd, stockMap }) {
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => { setOpen(false); setActive(null); }}
     >
+      {/* Vial photo backdrop — offset right of the fan, radially masked into the page black */}
+      <img
+        className="vial-backdrop"
+        src="/vial-retatrutide-crop.jpg"
+        alt=""
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          height: "132%",
+          width: "auto",
+          top: "50%",
+          right: -150,
+          transform: "translateY(-50%)",
+          opacity: 0.85,
+          pointerEvents: "none",
+          userSelect: "none",
+          WebkitMaskImage: "radial-gradient(ellipse 50% 50% at 50% 50%, rgba(0,0,0,1) 45%, transparent 85%)",
+          maskImage: "radial-gradient(ellipse 50% 50% at 50% 50%, rgba(0,0,0,1) 45%, transparent 85%)",
+        }}
+      />
+
       {/* Ambient glow behind cards */}
       <div style={{
         position: "absolute", width: 500, height: 300, borderRadius: "50%",
@@ -980,6 +1001,13 @@ export default function App() {
           .particle { display: none !important; }
         }
 
+        /* Vial backdrop bleeds past the main shell — clip so it can't cause a
+           horizontal scrollbar; hide it when there's no room beside the fan. */
+        html, body { overflow-x: clip; }
+        @media (max-width: 1280px) {
+          .vial-backdrop { display: none; }
+        }
+
         /* ─────────── Tablet ≤ 900px ─────────── */
         @media (max-width: 900px) {
           .header-bar { padding: 14px 22px !important; }
@@ -1215,12 +1243,31 @@ export default function App() {
           <div className="fade-section">
             <div className="section-eyebrow">Science</div>
             <h2 className="section-h2" style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 28 }}>Retatrutide Overview</h2>
-            <p className="lead-copy" style={{ fontSize: 13, color: "#5A5A52", marginBottom: 18, lineHeight: 1.88, maxWidth: 580 }}>
-              Retatrutide (LY3437943) is a synthetic peptide studied in metabolic and endocrine research. It functions as a triple receptor agonist, interacting with GLP-1, GIP, and glucagon receptors involved in energy balance and glucose regulation.
-            </p>
-            <p className="lead-copy" style={{ fontSize: 13, color: "#5A5A52", marginBottom: 64, lineHeight: 1.88, maxWidth: 580 }}>
-              In controlled research settings, activation of these pathways has been associated with effects on appetite signaling, metabolic activity, and glucose-related markers. Retatrutide continues to be studied for its role in metabolic research.
-            </p>
+            <div className="responsive-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center", marginBottom: 64 }}>
+              <div>
+                <p className="lead-copy" style={{ fontSize: 13, color: "#5A5A52", marginBottom: 18, lineHeight: 1.88, maxWidth: 580 }}>
+                  Retatrutide (LY3437943) is a synthetic peptide studied in metabolic and endocrine research. It functions as a triple receptor agonist, interacting with GLP-1, GIP, and glucagon receptors involved in energy balance and glucose regulation.
+                </p>
+                <p className="lead-copy" style={{ fontSize: 13, color: "#5A5A52", marginBottom: 0, lineHeight: 1.88, maxWidth: 580 }}>
+                  In controlled research settings, activation of these pathways has been associated with effects on appetite signaling, metabolic activity, and glucose-related markers. Retatrutide continues to be studied for its role in metabolic research.
+                </p>
+              </div>
+              <div style={{
+                position: "relative",
+                border: "1.5px solid rgba(212,175,55,0.22)",
+                boxShadow: "0 14px 44px rgba(0,0,0,0.75)",
+                padding: 7,
+                maxWidth: 380,
+                justifySelf: "center",
+              }}>
+                <div style={{ position: "absolute", inset: 7, border: "1px solid rgba(212,175,55,0.09)", pointerEvents: "none", zIndex: 1 }} />
+                <img
+                  src="/vial-retatrutide.jpg"
+                  alt="Ace Peptides Retatrutide 10mg research vial"
+                  style={{ display: "block", width: "100%", height: "auto" }}
+                />
+              </div>
+            </div>
             <div className="section-eyebrow">Published Findings</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {researchFindings.map((finding, i) => (

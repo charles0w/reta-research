@@ -1,7 +1,0 @@
-- generic [ref=e4]:
-  - generic [ref=e5]: ACE PEPTIDES
-  - generic [ref=e6]: Admin
-  - generic [ref=e7]: Password
-  - textbox [active] [ref=e8]: wrongpassword
-  - generic [ref=e10]: Incorrect password.
-  - button "Enter" [ref=e9] [cursor=pointer]
