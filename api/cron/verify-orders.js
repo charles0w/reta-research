@@ -19,7 +19,8 @@ const BATCH_SIZE = 50;
 const sha256 = (s) => crypto.createHash("sha256").update(String(s)).digest();
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).end();
+  // Vercel invokes scheduled crons via GET (with Authorization: Bearer CRON_SECRET).
+  if (req.method !== "GET" && req.method !== "POST") return res.status(405).end();
 
   const secret = process.env.CRON_SECRET;
   const authHeader = req.headers.authorization || "";
