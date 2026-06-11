@@ -1140,7 +1140,7 @@ export default function App() {
         </div>
 
         <nav className="header-nav" style={{ display: "flex", gap: 36, alignItems: "center" }}>
-          {[["products", "Products"], ["research", "Research"], ["faq", "FAQ"], ["subscribe", "Subscribe"]].map(([key, label]) => (
+          {[["products", "Products"], ["research", "Research"], ["faq", "FAQ"], ["subscribe", "Subscribe"], ["support", "Support"]].map(([key, label]) => (
             <button key={key} className={`nav-link ${section === key ? "active" : ""}`} onClick={() => setSection(key)}>
               {label}
             </button>
@@ -1304,6 +1304,55 @@ export default function App() {
                   {openFaq === i && <div className="faq-a">{f.a}</div>}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Support ── */}
+        {section === "support" && (
+          <div className="fade-section" style={{ maxWidth: 720, margin: "0 auto" }}>
+            <div className="section-eyebrow">Assistance</div>
+            <h2 className="section-h2" style={{ fontFamily: "'Cinzel', serif", fontSize: 34, fontWeight: 400, letterSpacing: "0.05em", marginBottom: 18 }}>Support</h2>
+            <p className="lead-copy" style={{ fontSize: 13, color: "#5A5A52", lineHeight: 1.88, maxWidth: 560, marginBottom: 56 }}>
+              Questions about an order, shipping, or our research compounds? Reach us through either channel below — we typically respond within one business day.
+            </p>
+
+            <div className="responsive-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+              <a
+                href="mailto:support@ace-peptides.com"
+                style={{ textDecoration: "none", color: "inherit", background: "#0D0D0D", border: "1px solid rgba(212,175,55,0.14)", padding: "34px 30px", display: "block", transition: "border-color .25s" }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(212,175,55,0.45)")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(212,175,55,0.14)")}
+              >
+                <div style={{ fontSize: 22, marginBottom: 14 }}>✉</div>
+                <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: "0.2em", textTransform: "uppercase", fontWeight: 700, marginBottom: 10 }}>Email</div>
+                <div style={{ fontFamily: "'Cinzel', serif", fontSize: 17, letterSpacing: "0.03em", color: "#F0EFE8", marginBottom: 8, wordBreak: "break-all" }}>
+                  support@ace-peptides.com
+                </div>
+                <div style={{ fontSize: 11, color: "#4A4A42", lineHeight: 1.7 }}>
+                  Best for order issues, tracking, and detailed questions.
+                </div>
+              </a>
+
+              <a
+                href="tel:+17866716256"
+                style={{ textDecoration: "none", color: "inherit", background: "#0D0D0D", border: "1px solid rgba(212,175,55,0.14)", padding: "34px 30px", display: "block", transition: "border-color .25s" }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(212,175,55,0.45)")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(212,175,55,0.14)")}
+              >
+                <div style={{ fontSize: 22, marginBottom: 14 }}>✆</div>
+                <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: "0.2em", textTransform: "uppercase", fontWeight: 700, marginBottom: 10 }}>Phone</div>
+                <div style={{ fontFamily: "'Cinzel', serif", fontSize: 17, letterSpacing: "0.03em", color: "#F0EFE8", marginBottom: 8 }}>
+                  (786) 671-6256
+                </div>
+                <div style={{ fontSize: 11, color: "#4A4A42", lineHeight: 1.7 }}>
+                  Call or text for quick questions about your order.
+                </div>
+              </a>
+            </div>
+
+            <div style={{ marginTop: 56, padding: "18px 28px", border: "1px solid rgba(212,175,55,0.07)", fontSize: 11, color: "#3A3A32", lineHeight: 1.8, textAlign: "center" }}>
+              <strong style={{ color: "#5A5A52" }}>Disclaimer:</strong> This product is intended strictly for laboratory research purposes only. Not for human or animal consumption. Not for use in diagnostic or therapeutic applications.
             </div>
           </div>
         )}
@@ -1810,11 +1859,12 @@ export default function App() {
             </button>
           ))}
           <span style={{ color: "#3A3A32" }}>·</span>
-          <a href="mailto:support@ace-peptides.com" style={{ color: "#2A2A22", textDecoration: "none", transition: "color .2s", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase" }}
+          <button onClick={() => { setSection("support"); window.scrollTo({ top: 0 }); }}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#2A2A22", transition: "color .2s", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "'Montserrat', sans-serif" }}
             onMouseEnter={(e) => (e.target.style.color = "#D4AF37")}
             onMouseLeave={(e) => (e.target.style.color = "#2A2A22")}>
             Contact
-          </a>
+          </button>
         </span>
       </footer>
 
