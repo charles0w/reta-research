@@ -11,7 +11,7 @@ const coinbaseProvider = coinbaseWallet.makeWeb3Provider();
 
 const products = [
   { id: 1, name: "Retatrutide 5mg",  purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 50.00,  stock: true },
-  { id: 2, name: "Retatrutide 10mg", purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 85.00,  stock: true },
+  { id: 2, name: "Retatrutide 10mg", purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 85.00,  stock: true, popular: true },
   { id: 3, name: "Retatrutide 15mg", purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 100.00, stock: "low" },
 ];
 
@@ -183,6 +183,16 @@ function CardSpread({ products, onAdd, stockMap }) {
             </div>
 
             <div style={{ textAlign: "center", zIndex: 1 }}>
+              {p.popular && (
+                <span style={{
+                  display: "inline-block", marginBottom: 10,
+                  background: "linear-gradient(135deg, #9A7A1A 0%, #D4AF37 50%, #F5D07A 100%)",
+                  color: "#000", fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase",
+                  fontWeight: 700, padding: "4px 8px", fontFamily: "'Montserrat', sans-serif",
+                }}>
+                  ♠ Most Popular
+                </span>
+              )}
               <div style={{ fontFamily: "'Cinzel', serif", fontSize: 16, letterSpacing: "0.05em", color: "#F0EFE8", marginBottom: 8 }}>
                 {p.name}
               </div>
@@ -299,6 +309,18 @@ function CardSpread({ products, onAdd, stockMap }) {
               <span style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: "#D4AF37", fontWeight: 600 }}>A</span>
               <span style={{ color: "#D4AF37", fontSize: 14, marginTop: 1 }}>♠</span>
             </div>
+
+            {/* Most popular tag */}
+            {p.popular && (
+              <span style={{
+                position: "absolute", top: 14, right: 14, zIndex: 1,
+                background: "linear-gradient(135deg, #9A7A1A 0%, #D4AF37 50%, #F5D07A 100%)",
+                color: "#000", fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase",
+                fontWeight: 700, padding: "4px 8px", fontFamily: "'Montserrat', sans-serif",
+              }}>
+                ♠ Most Popular
+              </span>
+            )}
 
             {/* Center content */}
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
