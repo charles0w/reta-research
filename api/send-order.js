@@ -97,7 +97,10 @@ export default async function handler(req, res) {
   try {
     const { subtotal, priced } = priceCart(cart);
     serverTotal = applyDiscount(subtotal, discountPct);
-    serverCart = cart.map((it, i) => ({ ...it, price: priced[i].unitPrice }));
+    // productId/stockQty drive the inventory decrement (wholesale packs map to
+    // the base product's vial stock × packOf) — persisted in items so the cron
+    // can apply the deferred decrement for pending orders.
+    serverCart = cart.map((it, i) => ({ ...it, price: priced[i].unitPrice, productId: priced[i].productId, stockQty: priced[i].stockQty }));
   } catch {
     return res.status(400).json({ error: "Invalid cart items" });
   }

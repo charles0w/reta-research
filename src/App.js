@@ -15,6 +15,14 @@ const products = [
   { id: 3, name: "Retatrutide 15mg", purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 100.00, stock: "low" },
 ];
 
+// Wholesale 10-vial packs — 10% off the single-vial price. Ids/prices must
+// mirror api/_catalog.js (the server is the pricing authority on the order path).
+const wholesalePacks = [
+  { id: 101, baseId: 1, name: "Retatrutide 5mg — Wholesale 10-Pack",  vialName: "Retatrutide 5mg",  vials: 10, price: 450.00, singlePrice: 50.00  },
+  { id: 102, baseId: 2, name: "Retatrutide 10mg — Wholesale 10-Pack", vialName: "Retatrutide 10mg", vials: 10, price: 765.00, singlePrice: 85.00  },
+  { id: 103, baseId: 3, name: "Retatrutide 15mg — Wholesale 10-Pack", vialName: "Retatrutide 15mg", vials: 10, price: 900.00, singlePrice: 100.00 },
+];
+
 const researchFindings = [
   "Changes in body weight over the course of structured studies",
   "Modulation of appetite-related signaling",
@@ -1236,6 +1244,54 @@ export default function App() {
                   )}
                 </div>
               ))}
+            </div>
+
+            {/* Wholesale packs */}
+            <div style={{ textAlign: "center", marginBottom: 24 }}>
+              <div className="section-eyebrow" style={{ justifyContent: "center", display: "flex" }}>Wholesale</div>
+              <h2 className="section-h2-sub" style={{ fontFamily: "'Cinzel', serif", fontSize: 26, fontWeight: 400, letterSpacing: "0.08em", marginBottom: 10 }}>
+                Bulk Research Packs
+              </h2>
+              <p style={{ fontSize: 12, color: "#4A4A42", lineHeight: 1.75, maxWidth: 440, margin: "0 auto" }}>
+                10 vials per pack · 10% below single-vial pricing · For high-volume laboratory programs
+              </p>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 56 }}>
+              {wholesalePacks.map((w) => {
+                const out = stockMap[w.baseId] === "out_of_stock";
+                const savings = w.singlePrice * w.vials - w.price;
+                return (
+                  <div key={w.id} className="row-card sub-row" style={{ border: "1px solid rgba(212,175,55,0.12)", background: "#0D0D0D", padding: "22px 26px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+                    <div>
+                      <div style={{ fontFamily: "'Cinzel', serif", fontSize: 15, letterSpacing: "0.04em", color: "#F0EFE8", marginBottom: 6 }}>
+                        {w.vialName} <span style={{ color: "#D4AF37" }}>× {w.vials}</span>
+                      </div>
+                      <div style={{ fontSize: 9, color: "#4A4A42", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                        ${(w.price / w.vials).toFixed(2)} per vial · save ${savings.toFixed(2)}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+                      <div style={{ textAlign: "right" }}>
+                        <span style={{ fontSize: 11, color: "#3A3A32", textDecoration: "line-through", marginRight: 10 }}>
+                          ${(w.singlePrice * w.vials).toFixed(2)}
+                        </span>
+                        <span className="gold-text" style={{ fontFamily: "'Cinzel', serif", fontSize: 20 }}>
+                          ${w.price.toFixed(2)}
+                        </span>
+                      </div>
+                      <button
+                        className="btn-gold"
+                        style={{ padding: "11px 24px", opacity: out ? 0.4 : 1, cursor: out ? "not-allowed" : "pointer" }}
+                        disabled={out}
+                        onClick={() => addToCart({ id: w.id, name: w.name, price: w.price })}
+                      >
+                        {out ? "Out of Stock" : "Add to Cart"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <div style={{ padding: "18px 28px", border: "1px solid rgba(212,175,55,0.07)", fontSize: 11, color: "#3A3A32", lineHeight: 1.8, textAlign: "center", letterSpacing: "0.02em" }}>

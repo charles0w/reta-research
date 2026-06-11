@@ -23,14 +23,15 @@ async function decrementOne(supabase, pid, qty) {
   }
 }
 
-// Decrement product_stock for each ordered line. Subscription lines carry the
-// real product id in `productId`; regular lines use the numeric `id`.
+// Decrement product_stock for each ordered line. Subscription and wholesale
+// lines carry the real product id in `productId`; regular lines use the numeric
+// `id`. `stockQty` (vials, e.g. qty × packOf for wholesale) overrides `qty`.
 export async function decrementStock(supabase, items) {
   await Promise.all(
     (items || [])
       .map((item) => ({
         pid: typeof item.productId === "number" ? item.productId : item.id,
-        qty: parseInt(item.qty, 10) || 1,
+        qty: parseInt(item.stockQty ?? item.qty, 10) || 1,
       }))
       .filter((x) => typeof x.pid === "number")
       .map(({ pid, qty }) => decrementOne(supabase, pid, qty))
