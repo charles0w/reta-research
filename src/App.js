@@ -569,7 +569,7 @@ export default function App() {
   // we persist the payload locally so it's recoverable and surface a notice.
   // Returns true only when the server confirms a saved order.
   const submitOrder = async (tx, method) => {
-    const payload = { cart, shipping: ship, txHash: tx, total: discountedTotal, paymentMethod: method, promoCode };
+    const payload = { cart, shipping: ship, txHash: tx, total: discountedTotal, paymentMethod: method, ...(promoCode ? { promoCode } : {}) };
     try {
       const res = await fetch("/api/send-order", {
         method: "POST",
@@ -699,7 +699,7 @@ export default function App() {
       const res = await fetch("/api/send-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart, shipping: ship, txHash: tx, total: discountedTotal, paymentMethod: manualCurrency, promoCode }),
+        body: JSON.stringify({ cart, shipping: ship, txHash: tx, total: discountedTotal, paymentMethod: manualCurrency, ...(promoCode ? { promoCode } : {}) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {

@@ -30,7 +30,8 @@ function validateBody(body) {
   if (typeof total !== "number" || total <= 0) return "Invalid total";
   if (!TX_RE.test(txHash)) return "Invalid txHash";
   if (!ALLOWED_PAYMENT_METHODS.includes(paymentMethod)) return "Invalid payment method";
-  if (promoCode !== undefined && (typeof promoCode !== "string" || promoCode.length > 50)) return "Invalid promo code";
+  // The client sends promoCode: null when no code is applied — treat null like absent.
+  if (promoCode != null && (typeof promoCode !== "string" || promoCode.length > 50)) return "Invalid promo code";
 
   const required = ["name", "email", "address", "city", "state", "zip", "country"];
   for (const k of required) {
