@@ -124,7 +124,7 @@ function StatCard({ label, value }) {
 
 // ── Orders Tab ───────────────────────────────────────────────────────────────
 
-function OrdersTab({ orders, pw, updating, setUpdating, setOrders, loadTab }) {
+function OrdersTab({ orders, token, updating, setUpdating, setOrders, loadTab }) {
   const [filter, setFilter] = useState("all");
   const [expanded, setExpanded] = useState(null);
   const [shippingOrder, setShippingOrder] = useState(null);
@@ -138,10 +138,10 @@ function OrdersTab({ orders, pw, updating, setUpdating, setOrders, loadTab }) {
     setUpdating(id);
     await fetch("/api/admin/update-order", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: pw, id, status, tracking_number: trackingNumber || undefined }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id, status, tracking_number: trackingNumber || undefined }),
     });
-    const result = await loadTab("orders", pw);
+    const result = await loadTab("orders", token);
     if (result) setOrders(result);
     setUpdating(null);
   };
@@ -401,7 +401,7 @@ function CustomersTab({ customers }) {
 
 // ── Inventory Tab ────────────────────────────────────────────────────────────
 
-function InventoryTab({ inventory, pw, updating, setUpdating, setInventory, loadTab }) {
+function InventoryTab({ inventory, token, updating, setUpdating, setInventory, loadTab }) {
   const products = inventory || [];
   const [qtyInputs, setQtyInputs] = useState({});
   const [savingQty, setSavingQty] = useState(null);
@@ -416,10 +416,10 @@ function InventoryTab({ inventory, pw, updating, setUpdating, setInventory, load
   const postInventory = async (body) => {
     await fetch("/api/admin/inventory", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: pw, ...body }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
     });
-    const result = await loadTab("inventory", pw);
+    const result = await loadTab("inventory", token);
     if (result) setInventory(result);
   };
 
@@ -684,12 +684,12 @@ const ENDPOINTS = {
   affiliates:  "/api/admin/affiliate-codes",
 };
 
-async function fetchTab(tabName, password) {
+async function fetchTab(tabName, token) {
   try {
     const res = await fetch(ENDPOINTS[tabName], {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({}),
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -702,7 +702,7 @@ async function fetchTab(tabName, password) {
 
 // ── Affiliates Tab ───────────────────────────────────────────────────────────
 
-function AffiliatesTab({ affiliates, pw, setAffiliates, loadTab }) {
+function AffiliatesTab({ affiliates, token, setAffiliates, loadTab }) {
   const codes = affiliates || [];
   const [label, setLabel]   = useState("");
   const [uses, setUses]     = useState(1);
@@ -714,8 +714,8 @@ function AffiliatesTab({ affiliates, pw, setAffiliates, loadTab }) {
   const postAffiliate = async (body) => {
     const res = await fetch("/api/admin/affiliate-codes", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: pw, ...body }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
     });
     return res.json();
   };
@@ -725,7 +725,7 @@ function AffiliatesTab({ affiliates, pw, setAffiliates, loadTab }) {
     setNewCode(null);
     const data = await postAffiliate({ action: "generate", label: label.trim() || null, uses, discount_pct: disc });
     if (data.code) setNewCode(data.code.code);
-    const result = await loadTab("affiliates", pw);
+    const result = await loadTab("affiliates", token);
     if (result) setAffiliates(result);
     setGenerating(false);
   };
@@ -733,7 +733,7 @@ function AffiliatesTab({ affiliates, pw, setAffiliates, loadTab }) {
   const deactivate = async (id) => {
     setDeactivating(id);
     await postAffiliate({ action: "deactivate", code_id: id });
-    const result = await loadTab("affiliates", pw);
+    const result = await loadTab("affiliates", token);
     if (result) setAffiliates(result);
     setDeactivating(null);
   };
@@ -834,6 +834,7 @@ function AffiliatesTab({ affiliates, pw, setAffiliates, loadTab }) {
 
 export default function Admin() {
   const [pw,          setPw]          = useState("");
+  const [token,       setToken]       = useState("");
   const [authed,      setAuthed]      = useState(false);
   const [tab,         setTab]         = useState("orders");
   const [loading,     setLoading]     = useState(false);
@@ -851,21 +852,40 @@ export default function Admin() {
   const SET_MAP  = { orders: setOrders, customers: setCustomers, analytics: setAnalytics, subscribers: setSubscribers, inventory: setInventory, affiliates: setAffiliates };
 
   // loadTab: always returns the raw data, and stores it
-  const loadTab = async (tabName, password) => {
-    const result = await fetchTab(tabName, password);
+  const loadTab = async (tabName, sessionToken) => {
+    const result = await fetchTab(tabName, sessionToken);
     if (result !== null) SET_MAP[tabName](result);
     return result;
   };
 
-  // Login
+  // Login: exchange the password for a short-lived session token, then load the
+  // first tab with it. Admin endpoints only accept Bearer tokens, never the
+  // raw password.
   const login = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const result = await loadTab("orders", pw);
-    setLoading(false);
-    if (result === null) { setError("Incorrect password."); return; }
-    setAuthed(true);
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: pw }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.token) {
+        setLoading(false);
+        setError(res.status === 429 ? "Too many attempts. Try again in 15 minutes." : "Incorrect password.");
+        return;
+      }
+      setToken(data.token);
+      const result = await loadTab("orders", data.token);
+      setLoading(false);
+      if (result === null) { setError("Session error. Please try again."); return; }
+      setAuthed(true);
+    } catch {
+      setLoading(false);
+      setError("Network error. Please try again.");
+    }
   };
 
   // Switch tabs (lazy load)
@@ -873,7 +893,7 @@ export default function Admin() {
     setTab(newTab);
     if (DATA_MAP[newTab] !== null) return; // already cached
     setLoading(true);
-    await loadTab(newTab, pw);
+    await loadTab(newTab, token);
     setLoading(false);
   };
 
@@ -881,7 +901,7 @@ export default function Admin() {
   const refresh = async () => {
     setLoading(true);
     SET_MAP[tab](null); // clear cache so we re-fetch
-    await loadTab(tab, pw);
+    await loadTab(tab, token);
     setLoading(false);
   };
 
@@ -889,6 +909,7 @@ export default function Admin() {
   const signOut = () => {
     setAuthed(false);
     setPw("");
+    setToken("");
     setOrders(null); setCustomers(null); setAnalytics(null); setSubscribers(null); setInventory(null);
     setTab("orders");
   };
@@ -963,7 +984,7 @@ export default function Admin() {
         ) : tab === "orders" ? (
           <OrdersTab
             orders={orders}
-            pw={pw}
+            token={token}
             updating={updating}
             setUpdating={setUpdating}
             setOrders={setOrders}
@@ -974,7 +995,7 @@ export default function Admin() {
         ) : tab === "inventory" ? (
           <InventoryTab
             inventory={inventory}
-            pw={pw}
+            token={token}
             updating={updating}
             setUpdating={setUpdating}
             setInventory={setInventory}
@@ -983,7 +1004,7 @@ export default function Admin() {
         ) : tab === "affiliates" ? (
           <AffiliatesTab
             affiliates={affiliates}
-            pw={pw}
+            token={token}
             setAffiliates={setAffiliates}
             loadTab={loadTab}
           />
