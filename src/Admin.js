@@ -693,8 +693,9 @@ async function fetchTab(tabName, token) {
     });
     if (!res.ok) return null;
     const data = await res.json();
-    // Each endpoint returns data keyed by tab name (or a generic key)
-    return data[tabName] ?? data.orders ?? data.customers ?? data.analytics ?? data.subscribers ?? data.inventory ?? data;
+    // Each endpoint returns data keyed by tab name (or a generic key —
+    // affiliate-codes returns { codes }).
+    return data[tabName] ?? data.codes ?? data.orders ?? data.customers ?? data.analytics ?? data.subscribers ?? data.inventory ?? data;
   } catch {
     return null;
   }
