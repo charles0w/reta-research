@@ -18,12 +18,17 @@ export default async function handler(req, res) {
   if (!code || typeof code !== "string") return res.status(400).json({ error: "Code required" });
   if (code.length < 8 || code.length > 20) return res.status(400).json({ error: "Invalid or expired code" });
 
-  const anonKey = process.env.SUPABASE_ANON_KEY;
-  if (!anonKey) return res.status(500).json({ error: "Service unavailable" });
+  // Use the service key (server-only). affiliate_codes has RLS enabled with no
+  // anon policy (db/migrations/0009) so the anon key can no longer dump every
+  // code via the Data API; this endpoint stays the only public lookup path and
+  // keeps its per-IP rate limit above. It returns only discount_pct — never the
+  // code list or remaining-use counts.
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+  if (!serviceKey) return res.status(500).json({ error: "Service unavailable" });
 
   const supabase = createClient(
     process.env.SUPABASE_URL,
-    anonKey,
+    serviceKey,
     { auth: { persistSession: false } }
   );
 

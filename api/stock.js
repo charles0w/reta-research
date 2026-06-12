@@ -3,7 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).end();
 
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
+  // Use the service key (server-only). product_stock has RLS enabled with no
+  // anon policy (db/migrations/0009), so the anon key would read nothing — and
+  // we deliberately project only product_id/stock_status so the response never
+  // leaks the exact `quantity` column.
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
   if (!supabaseKey) return res.status(500).json({ error: "Service unavailable" });
   const supabase = createClient(process.env.SUPABASE_URL, supabaseKey, { auth: { persistSession: false } });
 
