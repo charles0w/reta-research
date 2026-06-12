@@ -15,7 +15,7 @@ function generateCode() {
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  const { action, code_id, label, uses = 1, discount_pct = 10 } = req.body || {};
+  const { action, code_id, label, uses = 1, discount_pct = 10, custom_code } = req.body || {};
 
   const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -26,9 +26,18 @@ export default async function handler(req, res) {
   const auth = await requireAdmin(req, supabase);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
-  // Generate a new code
+  // Generate a new code — random by default, or a custom vanity code.
   if (action === "generate") {
-    const code = generateCode();
+    let code;
+    if (custom_code) {
+      code = String(custom_code).toUpperCase().trim();
+      // Min 8 chars to match the validate-code endpoint's minimum length.
+      if (!/^[A-Z0-9-]{8,24}$/.test(code)) {
+        return res.status(400).json({ error: "Custom code must be 8–24 characters: letters, numbers, dashes" });
+      }
+    } else {
+      code = generateCode();
+    }
     const qty = Math.max(1, parseInt(uses) || 1);
     const disc = Math.min(100, Math.max(1, parseInt(discount_pct) || 10));
     const { data, error } = await supabase
@@ -36,7 +45,10 @@ export default async function handler(req, res) {
       .insert({ code, discount_pct: disc, uses_remaining: qty, uses_total: qty, label: label || null })
       .select()
       .single();
-    if (error) return res.status(500).json({ error: "Internal server error" });
+    if (error) {
+      if (error.code === "23505") return res.status(409).json({ error: "That code already exists" });
+      return res.status(500).json({ error: "Internal server error" });
+    }
     return res.json({ code: data });
   }
 

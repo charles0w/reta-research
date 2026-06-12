@@ -753,11 +753,13 @@ async function fetchTab(tabName, token) {
 function AffiliatesTab({ affiliates, token, setAffiliates, loadTab }) {
   const codes = affiliates || [];
   const [label, setLabel]   = useState("");
+  const [customCode, setCustomCode] = useState("");
   const [uses, setUses]     = useState(1);
   const [disc, setDisc]     = useState(10);
   const [generating, setGenerating] = useState(false);
   const [deactivating, setDeactivating] = useState(null);
   const [newCode, setNewCode] = useState(null);
+  const [genError, setGenError] = useState(null);
 
   const postAffiliate = async (body) => {
     const res = await fetch("/api/admin/affiliate-codes", {
@@ -771,8 +773,16 @@ function AffiliatesTab({ affiliates, token, setAffiliates, loadTab }) {
   const generate = async () => {
     setGenerating(true);
     setNewCode(null);
-    const data = await postAffiliate({ action: "generate", label: label.trim() || null, uses, discount_pct: disc });
-    if (data.code) setNewCode(data.code.code);
+    setGenError(null);
+    const data = await postAffiliate({
+      action: "generate",
+      label: label.trim() || null,
+      uses,
+      discount_pct: disc,
+      custom_code: customCode.trim() || undefined,
+    });
+    if (data.code) { setNewCode(data.code.code); setCustomCode(""); }
+    else if (data.error) setGenError(data.error);
     const result = await loadTab("affiliates", token);
     if (result) setAffiliates(result);
     setGenerating(false);
@@ -802,10 +812,14 @@ function AffiliatesTab({ affiliates, token, setAffiliates, loadTab }) {
         <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: ".2em", textTransform: "uppercase", fontWeight: 700, marginBottom: 22 }}>
           Generate New Code
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 24, marginBottom: 22 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr 1fr", gap: 24, marginBottom: 22 }}>
           <div>
             <label className="section-label">Label (optional)</label>
             <input style={inputStyle} type="text" placeholder="e.g. Influencer A" value={label} onChange={(e) => setLabel(e.target.value)} />
+          </div>
+          <div>
+            <label className="section-label">Custom code (optional)</label>
+            <input style={inputStyle} type="text" placeholder="e.g. STRATOS10 — blank = random" value={customCode} onChange={(e) => setCustomCode(e.target.value.toUpperCase())} />
           </div>
           <div>
             <label className="section-label">Discount %</label>
@@ -826,6 +840,7 @@ function AffiliatesTab({ affiliates, token, setAffiliates, loadTab }) {
               <button onClick={() => navigator.clipboard?.writeText(newCode)} className="admin-btn" style={{ padding: "4px 10px" }}>Copy</button>
             </div>
           )}
+          {genError && <span style={{ fontSize: 11, color: "#B04040" }}>{genError}</span>}
         </div>
       </div>
 
