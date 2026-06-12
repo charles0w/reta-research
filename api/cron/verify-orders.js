@@ -73,6 +73,19 @@ export default async function handler(req, res) {
 
     if (result.status === "verified") {
       await supabase.from("orders").update({ payment_status: "verified" }).eq("id", order.id);
+      // Record the on-chain sender now that the tx is mined (it wasn't available
+      // when the order was submitted as 'pending'). Done as a separate best-effort
+      // write so the critical status flip never depends on the buyer_address
+      // column existing (db/migrations/0011).
+      if (result.from) {
+        const { error: addrErr } = await supabase
+          .from("orders")
+          .update({ buyer_address: result.from })
+          .eq("id", order.id);
+        if (addrErr && addrErr.code !== "42703") {
+          console.error(`verify-orders: could not record buyer_address for order ${order.id}:`, addrErr.code);
+        }
+      }
       try {
         await decrementStock(supabase, order.items);
       } catch (e) {

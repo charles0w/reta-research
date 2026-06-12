@@ -281,6 +281,15 @@ function OrdersTab({ orders, token, updating, setUpdating, setOrders, loadTab })
                       {order.payment_ref.slice(0, 20)}…
                     </a>
                   )}
+                  {order.buyer_address && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: ".14em", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>Paid From</div>
+                      <a href={`https://etherscan.io/address/${order.buyer_address}`} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: 11, color: "#C0BFB8", fontFamily: "monospace", wordBreak: "break-all" }}>
+                        {order.buyer_address}
+                      </a>
+                    </div>
+                  )}
                   {order.promo_code && (
                     <div style={{ marginTop: 12 }}>
                       <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: ".14em", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>Promo Code</div>

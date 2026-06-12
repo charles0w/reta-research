@@ -34,9 +34,11 @@ const topicToAddress = (t) => "0x" + t.slice(26).toLowerCase();
 
 // Verify that txHash is a confirmed payment of >= expectedUsd to RECIPIENT.
 // Returns one of:
-//   { status: 'pending', detail }   - tx not mined / insufficient confirmations / RPC not configured
-//   { status: 'verified', detail }  - mined, confirmed, correct recipient & sufficient amount
-//   { status: 'mismatch', detail }  - mined but wrong recipient / reverted / underpaid
+//   { status: 'pending', detail }        - tx not mined / insufficient confirmations / RPC not configured
+//   { status: 'verified', detail, from } - mined, confirmed, correct recipient & sufficient amount;
+//                                          `from` is the on-chain sender wallet (lowercased), recorded
+//                                          on the order so the operator can see who actually paid.
+//   { status: 'mismatch', detail }       - mined but wrong recipient / reverted / underpaid
 export async function verifyPayment({ txHash, paymentMethod, expectedUsd, ethUsdPrice }) {
   if (!process.env.ETH_RPC_URL) {
     console.error("_verifyPayment: ETH_RPC_URL not configured — order held as pending for cron reconciliation");
@@ -84,7 +86,8 @@ export async function verifyPayment({ txHash, paymentMethod, expectedUsd, ethUsd
     if (paid + 0.01 < expectedUsd) {
       return { status: "mismatch", detail: `underpaid: $${paid} < $${expectedUsd}` };
     }
-    return { status: "verified", detail: `USDC $${paid}` };
+    // topics[1] is the indexed `from` of the Transfer event — the wallet that paid.
+    return { status: "verified", detail: `USDC $${paid}`, from: topicToAddress(log.topics[1]) };
   }
 
   // ETH payment: inspect the transaction's recipient and value.
@@ -105,5 +108,5 @@ export async function verifyPayment({ txHash, paymentMethod, expectedUsd, ethUsd
   if (paidUsd < expectedUsd * 0.97) {
     return { status: "mismatch", detail: `underpaid: ~$${paidUsd.toFixed(2)} < $${expectedUsd}` };
   }
-  return { status: "verified", detail: `ETH ${eth} ~ $${paidUsd.toFixed(2)}` };
+  return { status: "verified", detail: `ETH ${eth} ~ $${paidUsd.toFixed(2)}`, from: (tx.from || "").toLowerCase() };
 }

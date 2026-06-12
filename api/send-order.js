@@ -138,6 +138,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Payment could not be verified" });
   }
   const paymentStatus = verification.status; // verified | pending | unverified
+  // The on-chain sender, observed server-side (never trusted from the client).
+  // Only available once the tx is mined, so it's null for 'pending' orders — the
+  // cron records it when the payment confirms. Surfaced to the operator so they
+  // can sanity-check who paid before shipping (guards against an order claiming
+  // someone else's transaction).
+  const buyerAddress = verification.from || null;
 
   // The redeemed code is recorded per-order so the admin can see which customer
   // used which affiliate code. promo_code may not exist as a column yet
@@ -156,11 +162,13 @@ export default async function handler(req, res) {
 
   let { data: inserted, error: insertError } = await supabase
     .from("orders")
-    .insert({ ...baseRow, promo_code: redeemedCode })
+    .insert({ ...baseRow, promo_code: redeemedCode, buyer_address: buyerAddress })
     .select("id")
     .single();
 
-  // 42703 = undefined_column: promo_code not migrated yet — insert without it.
+  // 42703 = undefined_column: promo_code (0008) or buyer_address (0011) not
+  // migrated yet — insert with only the core columns so tracking stays additive
+  // and never blocks an order.
   if (insertError && insertError.code === "42703") {
     ({ data: inserted, error: insertError } = await supabase
       .from("orders")
@@ -265,6 +273,11 @@ export default async function handler(req, res) {
             <a href="${esc(etherscanUrl)}" style="color:#D4AF37;">${esc(txHash)}</a>
           </div>
           <p style="font-size:11px;color:#555;">Status: <strong>${esc(paymentStatus)}</strong> — verify on <a href="${esc(etherscanUrl)}" style="color:#888;">Etherscan</a> before shipping if not yet verified.</p>
+          <p style="font-size:11px;color:#555;">Paid from: ${
+            buyerAddress
+              ? `<a href="https://etherscan.io/address/${esc(buyerAddress)}" style="color:#888;">${esc(buyerAddress)}</a> — confirm this matches the buyer before shipping.`
+              : "—  (appears once the payment confirms on-chain)"
+          }</p>
         </body>
         </html>
       `;
