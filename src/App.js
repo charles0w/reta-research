@@ -15,12 +15,12 @@ const products = [
   { id: 3, name: "Retatrutide 15mg", purity: "≥99.1%", form: "Lyophilized Powder", cas: "2381089-83-2", price: 100.00, stock: "low" },
 ];
 
-// Wholesale 10-vial packs — 10% off the single-vial price. Ids/prices must
+// Wholesale 10-vial packs at bulk pricing. Ids/prices must
 // mirror api/_catalog.js (the server is the pricing authority on the order path).
 const wholesalePacks = [
-  { id: 101, baseId: 1, name: "Retatrutide 5mg — Wholesale 10-Pack",  vialName: "Retatrutide 5mg",  vials: 10, price: 450.00, singlePrice: 50.00  },
-  { id: 102, baseId: 2, name: "Retatrutide 10mg — Wholesale 10-Pack", vialName: "Retatrutide 10mg", vials: 10, price: 765.00, singlePrice: 85.00  },
-  { id: 103, baseId: 3, name: "Retatrutide 15mg — Wholesale 10-Pack", vialName: "Retatrutide 15mg", vials: 10, price: 900.00, singlePrice: 100.00 },
+  { id: 101, baseId: 1, name: "Retatrutide 5mg — Wholesale 10-Pack",  vialName: "Retatrutide 5mg",  vials: 10, price: 400.00, singlePrice: 50.00  },
+  { id: 102, baseId: 2, name: "Retatrutide 10mg — Wholesale 10-Pack", vialName: "Retatrutide 10mg", vials: 10, price: 730.00, singlePrice: 85.00  },
+  { id: 103, baseId: 3, name: "Retatrutide 15mg — Wholesale 10-Pack", vialName: "Retatrutide 15mg", vials: 10, price: 850.00, singlePrice: 100.00 },
 ];
 
 const researchFindings = [
@@ -1290,7 +1290,7 @@ export default function App() {
                 Bulk Research Packs
               </h2>
               <p style={{ fontSize: 12, color: "#4A4A42", lineHeight: 1.75, maxWidth: 440, margin: "0 auto" }}>
-                10 vials per pack · 10% below single-vial pricing · For high-volume laboratory programs
+                10 vials per pack · save up to 20% vs single vials · For high-volume laboratory programs
               </p>
             </div>
 

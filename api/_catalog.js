@@ -9,11 +9,11 @@ export const PRODUCTS = {
   1: { name: "Retatrutide 5mg", price: 50.0 },
   2: { name: "Retatrutide 10mg", price: 85.0 },
   3: { name: "Retatrutide 15mg", price: 100.0 },
-  // Wholesale 10-vial packs — 10% off the single-vial price. baseId/packOf let
+  // Wholesale 10-vial packs at bulk pricing. baseId/packOf let
   // stock decrements hit the underlying vial inventory (10 vials per pack).
-  101: { name: "Retatrutide 5mg — Wholesale 10-Pack", price: 450.0, baseId: 1, packOf: 10 },
-  102: { name: "Retatrutide 10mg — Wholesale 10-Pack", price: 765.0, baseId: 2, packOf: 10 },
-  103: { name: "Retatrutide 15mg — Wholesale 10-Pack", price: 900.0, baseId: 3, packOf: 10 },
+  101: { name: "Retatrutide 5mg — Wholesale 10-Pack", price: 400.0, baseId: 1, packOf: 10 },
+  102: { name: "Retatrutide 10mg — Wholesale 10-Pack", price: 730.0, baseId: 2, packOf: 10 },
+  103: { name: "Retatrutide 15mg — Wholesale 10-Pack", price: 850.0, baseId: 3, packOf: 10 },
 };
 
 // Subscription discount by tier key (mirrors SUB_TIERS in src/App.js).
