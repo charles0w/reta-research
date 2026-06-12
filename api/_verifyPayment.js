@@ -10,7 +10,7 @@
 // 'pending' -> 'verified'/'mismatch' once the tx is mined.
 
 const RECIPIENT = (
-  process.env.RECIPIENT_ADDRESS || "0x74e9af21c6060328371b3813689b472132f89cbd"
+  process.env.RECIPIENT_ADDRESS || "0xEC6d18a2CbdCdabFEbA54ADecc616Df5e7e79dBa"
 ).toLowerCase();
 const USDC_CONTRACT = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"; // mainnet USDC
 // keccak256("Transfer(address,address,uint256)")

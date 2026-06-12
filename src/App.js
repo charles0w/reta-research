@@ -4,7 +4,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import CoinbaseWalletSDK from "@coinbase/wallet-sdk";
 
-const RECIPIENT_ADDRESS = "0x74e9af21c6060328371b3813689b472132f89cbd";
+const RECIPIENT_ADDRESS = "0xEC6d18a2CbdCdabFEbA54ADecc616Df5e7e79dBa";
 const USDC_CONTRACT   = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; // USDC on Ethereum mainnet
 const coinbaseWallet = new CoinbaseWalletSDK({ appName: "Ace Peptides" });
 const coinbaseProvider = coinbaseWallet.makeWeb3Provider();
