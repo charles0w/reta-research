@@ -281,6 +281,12 @@ function OrdersTab({ orders, token, updating, setUpdating, setOrders, loadTab })
                       {order.payment_ref.slice(0, 20)}…
                     </a>
                   )}
+                  {order.promo_code && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: ".14em", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>Promo Code</div>
+                      <div style={{ fontSize: 12, color: "#F0EFE8", fontFamily: "monospace", letterSpacing: ".06em" }}>{order.promo_code}</div>
+                    </div>
+                  )}
                   {order.tracking_number && (
                     <div style={{ marginTop: 12 }}>
                       <div style={{ fontSize: 9, color: "#D4AF37", letterSpacing: ".14em", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>Tracking</div>

@@ -139,19 +139,35 @@ export default async function handler(req, res) {
   }
   const paymentStatus = verification.status; // verified | pending | unverified
 
-  const { data: inserted, error: insertError } = await supabase
+  // The redeemed code is recorded per-order so the admin can see which customer
+  // used which affiliate code. promo_code may not exist as a column yet
+  // (db/migrations/0008) — if so, retry the insert without it so tracking is
+  // additive and never blocks an order.
+  const baseRow = {
+    payment_method: paymentMethod,
+    payment_ref: txHash,
+    status: "pending",
+    payment_status: paymentStatus,
+    items: serverCart,
+    total_usd: serverTotal,
+    shipping_info: shipping,
+  };
+  const redeemedCode = affiliate ? promoCode.toUpperCase().trim() : null;
+
+  let { data: inserted, error: insertError } = await supabase
     .from("orders")
-    .insert({
-      payment_method: paymentMethod,
-      payment_ref: txHash,
-      status: "pending",
-      payment_status: paymentStatus,
-      items: serverCart,
-      total_usd: serverTotal,
-      shipping_info: shipping,
-    })
+    .insert({ ...baseRow, promo_code: redeemedCode })
     .select("id")
     .single();
+
+  // 42703 = undefined_column: promo_code not migrated yet — insert without it.
+  if (insertError && insertError.code === "42703") {
+    ({ data: inserted, error: insertError } = await supabase
+      .from("orders")
+      .insert(baseRow)
+      .select("id")
+      .single());
+  }
 
   if (insertError) {
     // 23505 = unique_violation: a concurrent request already recorded this tx.
