@@ -189,7 +189,7 @@ function CardSpread({ products, onAdd, stockMap }) {
   if (isMobile) {
     // Per-card entrance offset: cards converge from a slight fan (outer cards
     // angled, middle straight) into the aligned stack, staggered by index.
-    const fanIn = [{ x: -18, r: -7 }, { x: 0, r: 0 }, { x: 18, r: 7 }];
+    const fanIn = [{ x: -28, r: -14 }, { x: 0, r: 0 }, { x: 28, r: 14 }];
     return (
       <div ref={dealRef} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {products.map((p, i) => {
@@ -207,7 +207,7 @@ function CardSpread({ products, onAdd, stockMap }) {
               opacity: shown ? 1 : 0,
               transform: shown ? "none" : `translate(${f.x}px, 28px) rotate(${f.r}deg) scale(0.96)`,
               transition: reduceMotion ? "none" : "transform 0.55s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.45s ease-out",
-              transitionDelay: reduceMotion ? "0ms" : `${i * 90}ms`,
+              transitionDelay: reduceMotion ? "0ms" : `${i * 150}ms`,
               willChange: "transform, opacity",
             }}
           >
