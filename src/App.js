@@ -153,6 +153,26 @@ function CardSpread({ products, onAdd, stockMap }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(null);
   const isMobile = useMediaQuery("(max-width: 720px)");
+  const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+
+  // Mobile "deal-in": the cards fan into place once the section scrolls into
+  // view — a one-time entrance that echoes the desktop hover fan. Desktop uses
+  // hover instead; reduced-motion shows the cards settled immediately (no flash,
+  // since useMediaQuery resolves synchronously on first render).
+  const [dealt, setDealt] = useState(false);
+  const dealRef = useRef(null);
+  useEffect(() => {
+    if (!isMobile || reduceMotion) return;
+    const node = dealRef.current;
+    if (!node) return;
+    const obs = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) { setDealt(true); obs.disconnect(); } },
+      { threshold: 0.15 }
+    );
+    obs.observe(node);
+    return () => obs.disconnect();
+  }, [isMobile, reduceMotion]);
+  const shown = dealt || reduceMotion;
 
   const stack = [
     { x: -22, y: 12, r: -11 },
@@ -167,9 +187,14 @@ function CardSpread({ products, onAdd, stockMap }) {
 
   // Mobile: stacked vertical list — the desktop fan needs ~700px width.
   if (isMobile) {
+    // Per-card entrance offset: cards converge from a slight fan (outer cards
+    // angled, middle straight) into the aligned stack, staggered by index.
+    const fanIn = [{ x: -18, r: -7 }, { x: 0, r: 0 }, { x: 18, r: 7 }];
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {products.map((p) => (
+      <div ref={dealRef} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {products.map((p, i) => {
+          const f = fanIn[i] || { x: 0, r: 0 };
+          return (
           <div
             key={p.id}
             style={{
@@ -179,6 +204,11 @@ function CardSpread({ products, onAdd, stockMap }) {
               boxShadow: "0 6px 28px rgba(0,0,0,0.65)",
               padding: 22, paddingTop: 18,
               display: "flex", flexDirection: "column", gap: 14,
+              opacity: shown ? 1 : 0,
+              transform: shown ? "none" : `translate(${f.x}px, 28px) rotate(${f.r}deg) scale(0.96)`,
+              transition: reduceMotion ? "none" : "transform 0.55s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.45s ease-out",
+              transitionDelay: reduceMotion ? "0ms" : `${i * 90}ms`,
+              willChange: "transform, opacity",
             }}
           >
             <div style={{ position: "absolute", inset: 7, border: "1px solid rgba(212,175,55,0.09)", pointerEvents: "none" }} />
@@ -239,7 +269,8 @@ function CardSpread({ products, onAdd, stockMap }) {
               Add to Cart
             </button>
           </div>
-        ))}
+          );
+        })}
       </div>
     );
   }
