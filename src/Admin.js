@@ -25,7 +25,7 @@ const PAYMENT_STATUS = {
   expired:      { color: "#B04040", bg: "rgba(176,64,64,0.15)",   label: "Expired"    },
 };
 
-const TABS = ["orders", "customers", "inventory", "affiliates", "subscribers", "analytics"];
+const TABS = ["orders", "customers", "inventory", "affiliates", "subscribers", "waitlist", "analytics"];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -601,6 +601,43 @@ function SubscribersTab({ subscribers }) {
   );
 }
 
+// ── Waitlist Tab ─────────────────────────────────────────────────────────────
+
+function WaitlistTab({ waitlist }) {
+  const list = waitlist || [];
+  return (
+    <div>
+      <div style={{ marginBottom: 28 }}>
+        <StatCard label="Waitlist Signups" value={list.length} />
+      </div>
+
+      {list.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px 0", fontSize: 12, color: "#3A3A32" }}>No waitlist signups yet.</div>
+      ) : (
+        <div style={{ background: "#0D0D0D", border: "1px solid rgba(212,175,55,0.1)", overflow: "hidden" }}>
+          {/* Header */}
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1fr", padding: "10px 20px", borderBottom: "1px solid rgba(212,175,55,0.08)" }}>
+            {["Email", "Product", "Date Joined"].map((h) => (
+              <div key={h} style={{ fontSize: 8, color: "#4A4A42", letterSpacing: ".16em", textTransform: "uppercase", fontWeight: 700 }}>{h}</div>
+            ))}
+          </div>
+          {list.map((row, i) => (
+            <div key={i} style={{
+              display: "grid", gridTemplateColumns: "2fr 1.5fr 1fr",
+              padding: "13px 20px",
+              borderBottom: i < list.length - 1 ? "1px solid rgba(212,175,55,0.05)" : "none",
+            }}>
+              <div style={{ fontSize: 12, color: "#C0BFB8", wordBreak: "break-all" }}>{row.email}</div>
+              <div style={{ fontSize: 11, color: "#5A5A52" }}>{row.product || "Any / not sure"}</div>
+              <div style={{ fontSize: 10, color: "#4A4A42" }}>{row.created_at ? fmtDateShort(row.created_at) : "—"}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Analytics Tab ────────────────────────────────────────────────────────────
 
 function AnalyticsTab({ analytics }) {
@@ -742,6 +779,7 @@ const ENDPOINTS = {
   customers:   "/api/admin/customers",
   analytics:   "/api/admin/analytics",
   subscribers: "/api/admin/subscribers",
+  waitlist:    "/api/admin/waitlist",
   inventory:   "/api/admin/inventory",
   affiliates:  "/api/admin/affiliate-codes",
 };
@@ -925,11 +963,12 @@ export default function Admin() {
   const [customers,   setCustomers]   = useState(null);
   const [analytics,   setAnalytics]   = useState(null);
   const [subscribers, setSubscribers] = useState(null);
+  const [waitlist,    setWaitlist]    = useState(null);
   const [inventory,   setInventory]   = useState(null);
   const [affiliates,  setAffiliates]  = useState(null);
 
-  const DATA_MAP = { orders, customers, analytics, subscribers, inventory, affiliates };
-  const SET_MAP  = { orders: setOrders, customers: setCustomers, analytics: setAnalytics, subscribers: setSubscribers, inventory: setInventory, affiliates: setAffiliates };
+  const DATA_MAP = { orders, customers, analytics, subscribers, waitlist, inventory, affiliates };
+  const SET_MAP  = { orders: setOrders, customers: setCustomers, analytics: setAnalytics, subscribers: setSubscribers, waitlist: setWaitlist, inventory: setInventory, affiliates: setAffiliates };
 
   // loadTab: always returns the raw data, and stores it
   const loadTab = async (tabName, sessionToken) => {
@@ -1105,6 +1144,8 @@ export default function Admin() {
           />
         ) : tab === "subscribers" ? (
           <SubscribersTab subscribers={subscribers} />
+        ) : tab === "waitlist" ? (
+          <WaitlistTab waitlist={waitlist} />
         ) : tab === "analytics" ? (
           <AnalyticsTab analytics={analytics} />
         ) : null}

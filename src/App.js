@@ -6,6 +6,11 @@ import CoinbaseWalletSDK from "@coinbase/wallet-sdk";
 
 const RECIPIENT_ADDRESS = "0xEC6d18a2CbdCdabFEbA54ADecc616Df5e7e79dBa";
 const USDC_CONTRACT   = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; // USDC on Ethereum mainnet
+
+// When true, checkout is disabled site-wide and replaced with a waitlist
+// signup. api/send-order.js has the matching server-side guard (PAYMENTS_FROZEN).
+// Flip REACT_APP_PAYMENTS_FROZEN in the environment and redeploy to toggle.
+const PAYMENTS_FROZEN = process.env.REACT_APP_PAYMENTS_FROZEN === "true";
 const coinbaseWallet = new CoinbaseWalletSDK({ appName: "Ace Peptides" });
 const coinbaseProvider = coinbaseWallet.makeWeb3Provider();
 
@@ -413,8 +418,98 @@ const SUB_TIERS = [
   { key: "monthly",   name: "Monthly",    cadence: "Every month",    discount: 0.15, popular: false },
 ];
 
+// Shown in place of checkout while PAYMENTS_FROZEN is on. Self-contained:
+// owns its own state and posts to /api/waitlist. `defaultProduct` pre-selects
+// whatever is in the cart so a waiting visitor's interest is captured per-SKU.
+function WaitlistPanel({ defaultProduct }) {
+  const [email, setEmail] = useState("");
+  const [product, setProduct] = useState(defaultProduct || "");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState(null);
+
+  const submit = async () => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), ...(product ? { product } : {}) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        setError(data.error || "Could not join the waitlist. Please try again.");
+        setSubmitting(false);
+        return;
+      }
+      setDone(true);
+    } catch {
+      setError("Network error — please try again in a moment.");
+    }
+    setSubmitting(false);
+  };
+
+  return (
+    <div style={{ marginBottom: 32, padding: "28px 28px 26px", border: "1px solid rgba(212,175,55,0.18)", background: "rgba(212,175,55,0.02)" }}>
+      {done ? (
+        <div style={{ textAlign: "center", padding: "16px 0" }}>
+          <div className="gold-text" style={{ fontFamily: "'Cinzel', serif", fontSize: 32, marginBottom: 12 }}>◈</div>
+          <h3 style={{ fontFamily: "'Cinzel', serif", fontSize: 18, fontWeight: 400, letterSpacing: "0.06em", marginBottom: 10 }}>You're on the list</h3>
+          <p style={{ fontSize: 12, color: "#5A5A52", lineHeight: 1.8, maxWidth: 380, margin: "0 auto" }}>
+            We'll email <strong style={{ color: "#F0EFE8" }}>{email.trim()}</strong> the moment ordering reopens.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".2em", textTransform: "uppercase", marginBottom: 12, color: "#D4AF37" }}>
+            Ordering temporarily paused
+          </div>
+          <p style={{ fontSize: 12, color: "#5A5A52", marginBottom: 22, lineHeight: 1.75 }}>
+            We're upgrading our checkout. Join the waitlist and we'll email you the moment ordering reopens — no payment now.
+          </p>
+          <div style={{ marginBottom: 18 }}>
+            <label className="calc-label">Email</label>
+            <input
+              className="ship-input"
+              type="email"
+              placeholder="jane@example.com"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setError(null); }}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+            />
+          </div>
+          <div style={{ marginBottom: 22 }}>
+            <label className="calc-label">Product you're waiting for</label>
+            <select
+              className="ship-input"
+              value={product}
+              onChange={(e) => setProduct(e.target.value)}
+              style={{ cursor: "pointer" }}
+            >
+              <option value="">Any / not sure yet</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.name}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+          <button className="btn-gold" style={{ width: "100%", padding: 15 }} onClick={submit} disabled={submitting}>
+            {submitting ? "Joining…" : "Join the waitlist"}
+          </button>
+          {error && <div className="error-msg">{error}</div>}
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [section, setSection] = useState("products");
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   // Cart survives refreshes — an accidental reload mid-checkout shouldn't empty it.
   const [cart, setCart] = useState(() => {
     try {
@@ -1210,6 +1305,21 @@ export default function App() {
         </nav>
       </header>
 
+      {PAYMENTS_FROZEN && !bannerDismissed && (
+        <div style={{ background: "rgba(212,175,55,0.08)", borderBottom: "1px solid rgba(212,175,55,0.2)", padding: "10px 18px", display: "flex", alignItems: "center", justifyContent: "center", gap: 14, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11, letterSpacing: "0.06em", color: "#D4AF37", textAlign: "center" }}>
+            Ordering is temporarily paused — join the waitlist to be notified the moment it reopens.
+          </span>
+          <button
+            onClick={() => setSection("cart")}
+            style={{ background: "none", border: "1px solid rgba(212,175,55,0.5)", color: "#D4AF37", padding: "4px 14px", fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer", fontFamily: "'Montserrat', sans-serif", fontWeight: 600 }}
+          >
+            Join waitlist
+          </button>
+          <button onClick={() => setBannerDismissed(true)} aria-label="Dismiss" style={{ background: "none", border: "none", color: "#6A6A60", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 4px" }}>×</button>
+        </div>
+      )}
+
       <div className="divider-gold" />
 
       <main className="main-shell" style={{ maxWidth: 1060, margin: "0 auto", padding: "72px 32px 140px", position: "relative", zIndex: 1 }}>
@@ -1657,11 +1767,15 @@ export default function App() {
                 </button>
               </div>
             ) : cart.length === 0 ? (
-              <div className="empty-cart" style={{ textAlign: "center", padding: "80px 0" }}>
-                <div style={{ fontSize: 36, marginBottom: 20, opacity: 0.2, color: "#D4AF37" }}>◈</div>
-                <p style={{ fontSize: 13, marginBottom: 28, color: "#4A4A42" }}>Your cart is empty.</p>
-                <button className="btn-outline-gold" onClick={() => setSection("products")}>Browse Products</button>
-              </div>
+              PAYMENTS_FROZEN ? (
+                <WaitlistPanel defaultProduct="" />
+              ) : (
+                <div className="empty-cart" style={{ textAlign: "center", padding: "80px 0" }}>
+                  <div style={{ fontSize: 36, marginBottom: 20, opacity: 0.2, color: "#D4AF37" }}>◈</div>
+                  <p style={{ fontSize: 13, marginBottom: 28, color: "#4A4A42" }}>Your cart is empty.</p>
+                  <button className="btn-outline-gold" onClick={() => setSection("products")}>Browse Products</button>
+                </div>
+              )
             ) : (
               <>
                 {cart.map((item) => (
@@ -1681,6 +1795,10 @@ export default function App() {
                   </div>
                 ))}
 
+                {PAYMENTS_FROZEN && (
+                  <WaitlistPanel defaultProduct={products.find((p) => cart.some((c) => c.name && c.name.startsWith(p.name)))?.name || ""} />
+                )}
+                {!PAYMENTS_FROZEN && (<>
                 <div style={{ padding: "20px 0", borderTop: "1px solid rgba(212,175,55,0.15)" }}>
                   {/* Promo code input */}
                   {!promoCode ? (
@@ -1941,6 +2059,7 @@ export default function App() {
                     </div>
                   )}
                 </div>
+                </>)}
 
                 <div style={{ marginTop: 24, fontSize: 11, color: "#3A3A32", lineHeight: 1.75, textAlign: "center" }}>
                   <strong style={{ color: "#4A4A42" }}>Disclaimer:</strong> This product is intended strictly for laboratory research purposes only. Not for human or animal consumption.

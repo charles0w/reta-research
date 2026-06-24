@@ -53,6 +53,13 @@ function validateBody(body) {
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
+  // Payments freeze (server-side guard, matches the client's PAYMENTS_FROZEN).
+  // Rejects new orders directly at the API so the public endpoint can't be hit
+  // while checkout is paused, and the stranded-order retry can't recreate one.
+  if (process.env.PAYMENTS_FROZEN === "true") {
+    return res.status(503).json({ error: "Payments are temporarily paused" });
+  }
+
   const ip = getClientIp(req);
   const rl = checkRateLimit(`send-order:${ip}`, SEND_ORDER_RATE);
   if (!rl.ok) {
