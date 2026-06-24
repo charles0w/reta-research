@@ -1083,6 +1083,9 @@ export default function App() {
             order: 3; width: 100%;
             justify-content: flex-start; flex-wrap: wrap;
             padding-top: 6px; row-gap: 10px;
+            /* Room for the absolutely-positioned cart badge (right: -16px) so it
+               isn't clipped by overflow-x clip when Cart lands at the edge. */
+            padding-right: 20px;
           }
           .nav-link { font-size: 9px !important; letter-spacing: 0.16em !important; padding-bottom: 4px !important; }
           .main-shell { padding: 40px 18px 80px !important; }

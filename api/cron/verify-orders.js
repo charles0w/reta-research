@@ -82,7 +82,7 @@ export default async function handler(req, res) {
           .from("orders")
           .update({ buyer_address: result.from })
           .eq("id", order.id);
-        if (addrErr && addrErr.code !== "42703") {
+        if (addrErr && addrErr.code !== "42703" && addrErr.code !== "PGRST204") {
           console.error(`verify-orders: could not record buyer_address for order ${order.id}:`, addrErr.code);
         }
       }

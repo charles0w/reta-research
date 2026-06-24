@@ -166,10 +166,13 @@ export default async function handler(req, res) {
     .select("id")
     .single();
 
-  // 42703 = undefined_column: promo_code (0008) or buyer_address (0011) not
-  // migrated yet — insert with only the core columns so tracking stays additive
-  // and never blocks an order.
-  if (insertError && insertError.code === "42703") {
+  // The optional tracking columns may not exist yet (promo_code → migration
+  // 0008, buyer_address → 0011). A missing column surfaces either as Postgres
+  // 42703 (undefined_column) or, through PostgREST's schema cache, as PGRST204
+  // ("Could not find the 'X' column of 'orders' in the schema cache") — catch
+  // both and retry with only the core columns so tracking stays additive and
+  // never blocks an order.
+  if (insertError && (insertError.code === "42703" || insertError.code === "PGRST204")) {
     ({ data: inserted, error: insertError } = await supabase
       .from("orders")
       .insert(baseRow)
